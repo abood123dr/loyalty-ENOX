@@ -2,7 +2,6 @@ import React from 'react';
 import { useStore } from '@/lib/useStore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2, Globe } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export default function StoreSwitcher() {
   const { currentStore, allStores, isSuperAdmin, switchStore } = useStore();

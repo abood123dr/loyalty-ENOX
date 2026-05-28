@@ -1,7 +1,7 @@
 import db from '@/api/base44Client';
 
 import React, { useState } from 'react';
-import { Bell, Moon, Sun, Shield } from 'lucide-react';
+import { Moon, Sun, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';

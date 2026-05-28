@@ -4,11 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Stamp, Phone, User, CheckCircle, Apple, Smartphone, AlertCircle } from 'lucide-react';
+import { Phone, User, CheckCircle, Apple, Smartphone, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
 
 export default function StoreRegister() {
   const { slug } = useParams();

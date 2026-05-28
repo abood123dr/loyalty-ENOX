@@ -3,6 +3,7 @@ import db from '@/api/base44Client';
 import React, { createContext, useState, useEffect } from 'react';
 
 import { useAuth } from './AuthContext';
+import { isPlatformAdmin, normalizeEmail } from './roles';
 
 export const StoreContext = createContext(null);
 
@@ -12,7 +13,7 @@ export const StoreProvider = ({ children }) => {
   const [allStores, setAllStores] = useState([]);
   const [isLoadingStore, setIsLoadingStore] = useState(true);
 
-  const isSuperAdmin = user?.role === 'admin';
+  const isSuperAdmin = isPlatformAdmin(user);
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -39,7 +40,11 @@ export const StoreProvider = ({ children }) => {
         }
       } else {
         // صاحب المتجر: يرى متجره فقط بناءً على owner_user_id
-        const stores = await db.entities.Store.filter({ owner_user_id: user.id });
+        const storesById = await db.entities.Store.filter({ owner_user_id: user.id });
+        const storesByEmail = await db.entities.Store.filter({ owner_email: normalizeEmail(user.email) });
+        const stores = [...storesById, ...storesByEmail].filter(
+          (store, index, list) => store?.id && list.findIndex(s => s.id === store.id) === index
+        );
         setAllStores(stores);
         setCurrentStore(stores[0] || null);
       }

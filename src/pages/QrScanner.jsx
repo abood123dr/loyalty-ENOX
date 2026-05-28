@@ -1,11 +1,11 @@
 import db from '@/api/base44Client';
 
-import React, { useState, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QrCode, Search, Plus, CheckCircle, Gift, User, Phone, Stamp } from 'lucide-react';
+import { QrCode, Search, CheckCircle, Gift, Phone, Stamp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';

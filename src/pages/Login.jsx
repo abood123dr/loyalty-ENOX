@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
+import { isPlatformAdmin } from "@/lib/roles";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -21,8 +22,8 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      await db.auth.login(email, password);
-      window.location.href = "/";
+      const result = await db.auth.login(email, password);
+      window.location.href = isPlatformAdmin(result?.user) ? "/super-admin" : "/";
     } catch (err) {
       setError(err.message || "Invalid email or password");
     } finally {

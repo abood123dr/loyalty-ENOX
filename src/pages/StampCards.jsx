@@ -1,15 +1,13 @@
 import db from '@/api/base44Client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
-import { motion } from 'framer-motion';
-import { Stamp, Lock, Unlock, Palette, Edit } from 'lucide-react';
+import { Lock, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 

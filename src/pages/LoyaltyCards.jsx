@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, Plus, Star, Coffee, Car, Scissors, UtensilsCrossed, Users, Lock, Shield } from 'lucide-react';
+import { CreditCard, Plus, Coffee, Car, Scissors, UtensilsCrossed, Users, Lock, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';

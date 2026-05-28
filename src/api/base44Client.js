@@ -5,6 +5,39 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const TABLE_NAMES = {
+  Store: 'stores',
+  StoreCustomer: 'store_customers',
+  StampScan: 'stamp_scans',
+  Notification: 'notifications',
+  Branch: 'branches',
+  Business: 'businesses',
+  Campaign: 'campaigns',
+  Customer: 'customers',
+  LoyaltyCard: 'loyalty_cards',
+  Reward: 'rewards',
+  Transaction: 'transactions',
+  PassKitIntegration: 'passkit_integrations',
+};
+
+const resolveTableName = (entityName) => TABLE_NAMES[entityName] || entityName;
+
+const applyListOptions = (query, sort = '-created_at', limit) => {
+  if (sort) {
+    const ascending = !sort.startsWith('-');
+    const column = sort.replace(/^-/, '') === 'created_date'
+      ? 'created_at'
+      : sort.replace(/^-/, '');
+    query = query.order(column, { ascending });
+  }
+
+  if (limit) {
+    query = query.limit(limit);
+  }
+
+  return query;
+};
+
 // ===== AUTH =====
 const auth = {
   isAuthenticated: async () => {
@@ -23,20 +56,94 @@ const auth = {
   logout: async () => {
     await supabase.auth.signOut();
   },
-  register: async (email, password, metadata = {}) => {
+  register: async (emailOrPayload, passwordArg, metadataArg = {}) => {
+    const payload = typeof emailOrPayload === 'object'
+      ? emailOrPayload
+      : { email: emailOrPayload, password: passwordArg, metadata: metadataArg };
+
+    const { email, password, metadata = {} } = payload;
     const { data, error } = await supabase.auth.signUp({ email, password, options: { data: metadata } });
     if (error) throw error;
+    return data;
+  },
+  verifyOtp: async ({ email, otpCode, type = 'signup' }) => {
+    const { data, error } = await supabase.auth.verifyOtp({ email, token: otpCode, type });
+    if (error) throw error;
+    return data?.session || data;
+  },
+  resendOtp: async (email, type = 'signup') => {
+    const { data, error } = await supabase.auth.resend({ email, type });
+    if (error) throw error;
+    return data;
+  },
+  loginWithProvider: async (provider, redirectTo = '/') => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}${redirectTo}` },
+    });
+    if (error) throw error;
+    return data;
+  },
+  resetPasswordRequest: async (email) => {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) throw error;
+    return data;
+  },
+  resetPassword: async ({ newPassword }) => {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    return data;
+  },
+  setToken: async (accessToken, refreshToken) => {
+    if (!refreshToken) return;
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (error) throw error;
+    return data;
+  },
+  createStoreUser: async ({ email, password, name, role = 'owner', storeId }) => {
+    const normalizedEmail = email?.trim().toLowerCase();
+    const { data: { session: adminSession } } = await supabase.auth.getSession();
+
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+      options: {
+        data: {
+          name,
+          role,
+          store_id: storeId,
+        },
+      },
+    });
+    if (error) throw error;
+
+    if (adminSession?.access_token && adminSession?.refresh_token) {
+      await supabase.auth.setSession({
+        access_token: adminSession.access_token,
+        refresh_token: adminSession.refresh_token,
+      });
+    }
+
     return data;
   },
 };
 
 // ===== ENTITIES (قاعدة البيانات) =====
-const createEntity = (tableName) => ({
-  filter: async (filters = {}) => {
+const createEntity = (entityName) => {
+  const tableName = resolveTableName(entityName);
+
+  return {
+  filter: async (filters = {}, sort, limit) => {
     let query = supabase.from(tableName).select('*');
     Object.entries(filters).forEach(([key, value]) => {
       query = query.eq(key, value);
     });
+    query = applyListOptions(query, sort, limit);
     const { data, error } = await query;
     if (error) throw error;
     return data || [];
@@ -61,12 +168,14 @@ const createEntity = (tableName) => ({
     if (error) throw error;
     return { success: true };
   },
-  list: async () => {
-    const { data, error } = await supabase.from(tableName).select('*');
+  list: async (sort, limit) => {
+    const query = applyListOptions(supabase.from(tableName).select('*'), sort, limit);
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
   },
-});
+  };
+};
 
 // ===== ENTITIES MAP =====
 const entities = new Proxy({}, {
@@ -82,6 +191,15 @@ const integrations = {
       if (error) throw error;
       const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(data.path);
       return { file_url: publicUrl };
+    },
+  },
+  PassKit: {
+    createMemberPass: async ({ storeId, customerId }) => {
+      const { data, error } = await supabase.functions.invoke('passkit-create-member-pass', {
+        body: { storeId, customerId },
+      });
+      if (error) throw error;
+      return data;
     },
   },
 };

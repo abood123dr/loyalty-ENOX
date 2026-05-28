@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
 import { motion } from 'framer-motion';
-import { Users, Stamp, Gift, QrCode, TrendingUp, Store } from 'lucide-react';
+import { Users, Stamp, Gift, QrCode, Store } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const weekData = [

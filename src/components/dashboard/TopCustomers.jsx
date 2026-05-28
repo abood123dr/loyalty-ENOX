@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Crown, Star, Award } from 'lucide-react';
+import { Crown } from 'lucide-react';
 
 const topCustomers = [
   { name: 'أحمد محمد', points: 2450, visits: 48, tier: 'platinum' },

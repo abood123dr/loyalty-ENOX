@@ -1,7 +1,17 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/api/base44Client';
+import { isPlatformAdmin } from './roles';
 
 const AuthContext = createContext();
+
+const withAppRole = (authUser) => {
+  if (!authUser) return null;
+
+  return {
+    ...authUser,
+    role: isPlatformAdmin(authUser) ? 'super_admin' : authUser.role,
+  };
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -11,14 +21,14 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // تحقق من الجلسة الحالية
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      setUser(withAppRole(session?.user));
       setIsAuthenticated(!!session);
       setIsLoadingAuth(false);
     });
 
     // استمع لتغييرات الـ Auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      setUser(withAppRole(session?.user));
       setIsAuthenticated(!!session);
       setIsLoadingAuth(false);
     });
@@ -37,6 +47,15 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
+  const checkUserAuth = async () => {
+    setIsLoadingAuth(true);
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    setUser(withAppRole(currentUser));
+    setIsAuthenticated(!!currentUser);
+    setIsLoadingAuth(false);
+    return currentUser;
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -48,6 +67,7 @@ export const AuthProvider = ({ children }) => {
       authChecked: !isLoadingAuth,
       logout,
       navigateToLogin,
+      checkUserAuth,
     }}>
       {children}
     </AuthContext.Provider>
