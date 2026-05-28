@@ -167,3 +167,4 @@ export default function CustomerCardView({ customer, cardDesign = defaultCardDes
     </div>
   );
 }
+

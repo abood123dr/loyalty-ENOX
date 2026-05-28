@@ -52,3 +52,4 @@ export default function LiveActivity() {
     </motion.div>
   );
 }
+

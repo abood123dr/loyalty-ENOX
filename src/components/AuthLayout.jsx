@@ -21,3 +21,5 @@ export default function AuthLayout({ icon: Icon, title, subtitle, footer, childr
     </div>
   );
 }
+
+
