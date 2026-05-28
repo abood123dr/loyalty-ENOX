@@ -71,6 +71,12 @@ export default function WalletPasses() {
         </div>
       )}
 
+      {!currentStore && (
+        <div className="rounded-xl border border-warning/20 bg-warning/10 p-3 text-sm text-warning">
+          اختر متجرًا محددًا من قائمة المتاجر في الشريط الجانبي قبل إصدار بطاقات Wallet.
+        </div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -84,6 +90,8 @@ export default function WalletPasses() {
           <p className="text-sm text-muted-foreground mb-3">
             {passkitReady
               ? 'PassKit مفعل لهذا المتجر. يمكنك إصدار بطاقة Wallet لكل عميل من القائمة أدناه.'
+              : !currentStore
+                ? 'اختر متجرًا محددًا أولًا حتى نعرف إعدادات PassKit الخاصة به.'
               : 'فعل PassKit من لوحة السوبر أدمن وأدخل Program ID لهذا المتجر قبل إصدار البطاقات.'}
           </p>
           <Badge className={passkitReady ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}>
