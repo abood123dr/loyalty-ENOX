@@ -6,11 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const apiBaseByRegion: Record<string, string> = {
-  eu: 'https://api.pub1.passkit.io',
-  us: 'https://api.pub2.passkit.io',
-};
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -27,9 +22,12 @@ serve(async (req) => {
       Deno.env.get('SERVICE_ROLE_KEY')!,
     );
 
-    const token = Deno.env.get('PASSKIT_API_TOKEN');
-    if (!token) {
-      return Response.json({ error: 'PASSKIT_API_TOKEN is not configured' }, { status: 500, headers: corsHeaders });
+    const restKey = Deno.env.get('PASSKIT_REST_KEY');
+    const restSecret = Deno.env.get('PASSKIT_REST_SECRET');
+    const apiBase = Deno.env.get('PASSKIT_API_BASE') || 'https://api.pub2.passkit.io';
+
+    if (!restKey || !restSecret) {
+      return Response.json({ error: 'PASSKIT_REST_KEY and PASSKIT_REST_SECRET are required' }, { status: 500, headers: corsHeaders });
     }
 
     const { data: store, error: storeError } = await supabase
@@ -55,10 +53,28 @@ serve(async (req) => {
 
     const programId = integration?.program_id || store.passkit_program_id;
     const tierId = integration?.tier_id || store.passkit_tier_id;
-    const apiBase = apiBaseByRegion[integration?.region || 'eu'];
 
     if (!programId) {
       return Response.json({ error: 'PassKit program_id is not configured for this store' }, { status: 400, headers: corsHeaders });
+    }
+
+    const loginResponse = await fetch(`${apiBase}/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        key: restKey,
+        secret: restSecret,
+      }),
+    });
+    const loginBody = await loginResponse.json().catch(() => ({}));
+    if (!loginResponse.ok) {
+      return Response.json({ error: 'PassKit login failed', details: loginBody }, { status: loginResponse.status, headers: corsHeaders });
+    }
+    const token = loginBody.token || loginBody.accessToken || loginBody?.response?.token;
+    if (!token) {
+      return Response.json({ error: 'PassKit login did not return a token', details: loginBody }, { status: 500, headers: corsHeaders });
     }
 
     const externalId = `${store.slug}-${customer.id}`;
