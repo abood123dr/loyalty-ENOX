@@ -33,6 +33,21 @@ const createPassKitJwt = async (key: string, secret: string) => {
   return `${unsignedToken}.${base64Url(signature)}`;
 };
 
+const passUrlBaseFromApiBase = (apiBase: string) => {
+  if (apiBase.includes('pub2')) return 'https://pub2.pskt.io/';
+  return 'https://pub1.pskt.io/';
+};
+
+const readPassId = (body: Record<string, unknown>) => {
+  const response = body.response as Record<string, unknown> | undefined;
+  return body.id
+    || body.memberId
+    || body.passId
+    || response?.id
+    || response?.memberId
+    || response?.passId;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -52,6 +67,7 @@ serve(async (req) => {
     const restKey = Deno.env.get('PASSKIT_REST_KEY');
     const restSecret = Deno.env.get('PASSKIT_REST_SECRET');
     const apiBase = Deno.env.get('PASSKIT_API_BASE') || 'https://api.pub2.passkit.io';
+    const passUrlBase = Deno.env.get('PASSKIT_PASS_URL_BASE') || passUrlBaseFromApiBase(apiBase);
 
     if (!restKey || !restSecret) {
       return Response.json({ error: 'PASSKIT_REST_KEY and PASSKIT_REST_SECRET are required' }, { status: 500, headers: corsHeaders });
@@ -121,8 +137,18 @@ serve(async (req) => {
       return Response.json({ error: 'PassKit request failed', details: passkitBody }, { status: passkitResponse.status, headers: corsHeaders });
     }
 
-    const passId = passkitBody.id || passkitBody.memberId || passkitBody?.response?.id;
-    const passUrl = passkitBody.url || passkitBody.passUrl || passkitBody?.response?.url;
+    const passId = readPassId(passkitBody);
+    const passUrl = passkitBody.url
+      || passkitBody.passUrl
+      || passkitBody.passURL
+      || passkitBody?.response?.url
+      || passkitBody?.response?.passUrl
+      || passkitBody?.response?.passURL
+      || (passId ? `${passUrlBase.replace(/\/?$/, '/')}${passId}` : null);
+
+    if (!passId) {
+      return Response.json({ error: 'PassKit created a member but no pass id was returned', details: passkitBody }, { status: 502, headers: corsHeaders });
+    }
 
     await supabase
       .from('store_customers')
