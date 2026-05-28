@@ -6,6 +6,33 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const base64Url = (input: string | ArrayBuffer) => {
+  const bytes = typeof input === 'string'
+    ? new TextEncoder().encode(input)
+    : new Uint8Array(input);
+  let binary = '';
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+};
+
+const createPassKitJwt = async (key: string, secret: string) => {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const payload = { uid: key, iat: now, exp: now + 3600 };
+  const unsignedToken = `${base64Url(JSON.stringify(header))}.${base64Url(JSON.stringify(payload))}`;
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(unsignedToken));
+  return `${unsignedToken}.${base64Url(signature)}`;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -58,24 +85,7 @@ serve(async (req) => {
       return Response.json({ error: 'PassKit program_id is not configured for this store' }, { status: 400, headers: corsHeaders });
     }
 
-    const loginResponse = await fetch(`${apiBase}/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        key: restKey,
-        secret: restSecret,
-      }),
-    });
-    const loginBody = await loginResponse.json().catch(() => ({}));
-    if (!loginResponse.ok) {
-      return Response.json({ error: 'PassKit login failed', details: loginBody }, { status: loginResponse.status, headers: corsHeaders });
-    }
-    const token = loginBody.token || loginBody.accessToken || loginBody?.response?.token;
-    if (!token) {
-      return Response.json({ error: 'PassKit login did not return a token', details: loginBody }, { status: 500, headers: corsHeaders });
-    }
+    const token = await createPassKitJwt(restKey, restSecret);
 
     const externalId = `${store.slug}-${customer.id}`;
     const passkitPayload = {
@@ -100,7 +110,7 @@ serve(async (req) => {
     const passkitResponse = await fetch(`${apiBase}/members/member`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: token,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(passkitPayload),
