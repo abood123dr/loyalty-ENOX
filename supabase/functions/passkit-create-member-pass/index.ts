@@ -48,6 +48,56 @@ const readPassId = (body: Record<string, unknown>) => {
     || response?.passId;
 };
 
+const encodeSvgDataUrl = (svg: string) => {
+  const bytes = new TextEncoder().encode(svg);
+  let binary = '';
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return `data:image/svg+xml;base64,${btoa(binary)}`;
+};
+
+const stampSymbol = (icon?: string) => ({
+  star: '★',
+  heart: '♥',
+  coffee: '☕',
+  gift: '◆',
+  none: '',
+  check: '✓',
+}[icon || 'check'] || '✓');
+
+const createStampProfileImage = (store: Record<string, string | number | null>, customer: Record<string, string | number | null>) => {
+  const current = Math.max(0, Number(customer.current_stamps) || 0);
+  const total = Math.max(1, Math.min(Number(store.stamps_required) || 10, 12));
+  const bg = String(store.card_bg_color || '#7C3AED');
+  const text = String(store.card_text_color || '#FFFFFF');
+  const active = String(store.stamp_active_color || '#FFFFFF');
+  const inactive = String(store.stamp_inactive_color || '#FFFFFF33');
+  const symbol = stampSymbol(String(store.stamp_icon || 'check'));
+  const circles = Array.from({ length: total }).map((_, index) => {
+    const col = index % 4;
+    const row = Math.floor(index / 4);
+    const x = 70 + col * 60;
+    const y = 118 + row * 54;
+    const filled = index < current;
+    return `
+      <circle cx="${x}" cy="${y}" r="20" fill="${filled ? active : inactive}" stroke="${text}" stroke-opacity="0.55" stroke-width="2"/>
+      ${filled && symbol ? `<text x="${x}" y="${y + 7}" text-anchor="middle" font-size="22" font-weight="700" fill="${bg}">${symbol}</text>` : ''}
+    `;
+  }).join('');
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">
+      <rect width="320" height="320" rx="34" fill="${bg}"/>
+      <text x="160" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="${text}">STAMP CARD</text>
+      <text x="160" y="76" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="${text}" opacity="0.78">${current} / ${total}</text>
+      ${circles}
+      <text x="160" y="288" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="${text}" opacity="0.86">${String(store.reward_description || '').slice(0, 34)}</text>
+    </svg>
+  `;
+  return encodeSvgDataUrl(svg);
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -113,6 +163,7 @@ serve(async (req) => {
       mobileNumber: customer.phone,
       emailAddress: customer.email,
       points: customer.current_stamps || 0,
+      profileImage: createStampProfileImage(store, customer),
       metaData: {
         storeId,
         customerId,
