@@ -1,4 +1,4 @@
-import db from '@/api/base44Client';
+import db, { supabase } from '@/api/base44Client';
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
@@ -18,6 +18,7 @@ export default function StoreRegister() {
   const [form, setForm] = useState({ full_name: '', phone: '' });
   const [submitting, setSubmitting] = useState(false);
   const [newCustomer, setNewCustomer] = useState(null);
+  const [walletPassUrl, setWalletPassUrl] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -43,15 +44,8 @@ export default function StoreRegister() {
     setError('');
     setSubmitting(true);
 
-    // Check if phone already exists in this store
-    const existing = await db.entities.StoreCustomer.filter({ store_id: store.id, phone: form.phone.trim() });
-    if (existing.length > 0) {
-      setError('هذا الرقم مسجّل مسبقاً في هذا المتجر');
-      setSubmitting(false);
-      return;
-    }
-
-    const customer = await db.entities.StoreCustomer.create({
+    const customer = {
+      id: crypto.randomUUID(),
       store_id: store.id,
       full_name: form.full_name.trim(),
       phone: form.phone.trim(),
@@ -59,11 +53,38 @@ export default function StoreRegister() {
       total_stamps_earned: 0,
       total_rewards_redeemed: 0,
       is_active: true,
-    });
+    };
 
-    setNewCustomer(customer);
-    setStep('success');
-    setSubmitting(false);
+    try {
+      const { error: insertError } = await supabase
+        .from('store_customers')
+        .insert(customer);
+
+      if (insertError) throw insertError;
+
+      setNewCustomer(customer);
+      setStep('success');
+
+      if (store.passkit_enabled && store.passkit_program_id) {
+        try {
+          const pass = await db.integrations.PassKit.createMemberPass({
+            storeId: store.id,
+            customerId: customer.id,
+          });
+          setWalletPassUrl(pass?.passUrl || '');
+        } catch (passError) {
+          setError(passError?.message || 'تم التسجيل، لكن تعذر إصدار بطاقة Wallet.');
+        }
+      }
+    } catch (submitError) {
+      if (submitError?.code === '23505') {
+        setError('هذا الرقم مسجّل مسبقاً في هذا المتجر');
+      } else {
+        setError(submitError?.message || 'تعذر التسجيل، حاول مرة أخرى');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -191,10 +212,24 @@ export default function StoreRegister() {
 
               <div className="space-y-2 pt-2">
                 <p className="text-xs text-muted-foreground font-medium">أضف بطاقتك إلى محفظتك</p>
-                <Button className="w-full gap-2 bg-black text-white hover:bg-black/90">
+                {error && (
+                  <div className="text-xs text-warning bg-warning/10 border border-warning/20 p-2 rounded-lg">
+                    {error}
+                  </div>
+                )}
+                <Button
+                  className="w-full gap-2 bg-black text-white hover:bg-black/90"
+                  disabled={!walletPassUrl}
+                  onClick={() => walletPassUrl && window.open(walletPassUrl, '_blank')}
+                >
                   <Apple className="w-4 h-4" />Apple Wallet
                 </Button>
-                <Button className="w-full gap-2" variant="outline">
+                <Button
+                  className="w-full gap-2"
+                  variant="outline"
+                  disabled={!walletPassUrl}
+                  onClick={() => walletPassUrl && window.open(walletPassUrl, '_blank')}
+                >
                   <Smartphone className="w-4 h-4" />Google Wallet
                 </Button>
               </div>
