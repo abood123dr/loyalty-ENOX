@@ -108,6 +108,17 @@ export default function StoreRegister() {
   }
 
   const bgColor = store?.card_bg_color || '#7C3AED';
+  const textColor = store?.card_text_color || '#FFFFFF';
+  const activeStampColor = store?.stamp_active_color || '#FFFFFF';
+  const inactiveStampColor = store?.stamp_inactive_color || '#FFFFFF33';
+  const stampIcon = {
+    check: '✓',
+    star: '★',
+    heart: '♥',
+    coffee: '☕',
+    gift: '◆',
+    none: '',
+  }[store?.stamp_icon || 'check'];
   const stamps = store?.stamps_required || 10;
 
   return (
@@ -127,8 +138,8 @@ export default function StoreRegister() {
 
         {/* Store Info */}
         <div className="text-center mb-6">
-          {store.logo_url ? (
-            <img src={store.logo_url} className="w-16 h-16 rounded-2xl object-cover mx-auto mb-3 shadow-lg" alt="شعار" />
+          {store.card_logo_url || store.logo_url ? (
+            <img src={store.card_logo_url || store.logo_url} className="w-16 h-16 rounded-2xl object-cover mx-auto mb-3 shadow-lg" alt="شعار" />
           ) : (
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold text-white mx-auto mb-3 shadow-lg"
               style={{ background: bgColor }}>
@@ -140,17 +151,19 @@ export default function StoreRegister() {
         </div>
 
         {/* Stamp Card Preview */}
-        <div className="rounded-2xl p-5 mb-6 shadow-xl" style={{ background: `linear-gradient(135deg, ${bgColor}, ${bgColor}cc)` }}>
+        <div className="rounded-2xl p-5 mb-6 shadow-xl" style={{ background: `linear-gradient(135deg, ${bgColor}, ${bgColor}cc)`, color: textColor }}>
           <div className="flex justify-between items-center mb-4">
-            <p className="text-white font-bold text-sm">بطاقة الطوابع</p>
-            <p className="text-white/70 text-xs">اجمع {stamps} طوابع</p>
+            <p className="font-bold text-sm">بطاقة الطوابع</p>
+            <p className="opacity-70 text-xs">اجمع {stamps} طوابع</p>
           </div>
           <div className="flex flex-wrap gap-2 mb-3">
             {Array.from({ length: stamps }).map((_, i) => (
-              <div key={i} className="w-7 h-7 rounded-full border-2 border-white/40 bg-white/10" />
+              <div key={i} className="w-7 h-7 rounded-full border-2 border-white/40 flex items-center justify-center text-xs font-bold" style={{ background: i === 0 ? activeStampColor : inactiveStampColor, color: bgColor }}>
+                {i === 0 ? stampIcon : ''}
+              </div>
             ))}
           </div>
-          <p className="text-white text-xs opacity-80">{store.reward_description || 'احصل على مكافأة مجانية!'}</p>
+          <p className="text-xs opacity-80">{store.reward_description || 'احصل على مكافأة مجانية!'}</p>
         </div>
 
         <AnimatePresence mode="wait">
@@ -200,14 +213,14 @@ export default function StoreRegister() {
               </p>
 
               {/* Stamps Card Mini */}
-              <div className="rounded-xl p-4" style={{ background: `linear-gradient(135deg, ${bgColor}, ${bgColor}cc)` }}>
-                <p className="text-white font-bold text-sm mb-2">{store.name}</p>
+              <div className="rounded-xl p-4" style={{ background: `linear-gradient(135deg, ${bgColor}, ${bgColor}cc)`, color: textColor }}>
+                <p className="font-bold text-sm mb-2">{store.name}</p>
                 <div className="flex gap-1.5 flex-wrap mb-2">
                   {Array.from({ length: stamps }).map((_, i) => (
-                    <div key={i} className="w-6 h-6 rounded-full border-2 border-white/40 bg-white/10" />
+                    <div key={i} className="w-6 h-6 rounded-full border-2 border-white/40 flex items-center justify-center text-xs font-bold" style={{ background: inactiveStampColor, color: bgColor }} />
                   ))}
                 </div>
-                <p className="text-white/80 text-xs">0/{stamps} طابع</p>
+                <p className="opacity-80 text-xs">0/{stamps} طابع</p>
               </div>
 
               <div className="space-y-2 pt-2">

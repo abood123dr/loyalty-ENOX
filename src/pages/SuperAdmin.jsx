@@ -49,6 +49,10 @@ const emptyForm = {
   reward_description: 'مشروبك العاشر مجانا!',
   card_bg_color: '#7C3AED',
   card_text_color: '#FFFFFF',
+  card_logo_url: '',
+  stamp_active_color: '#FFFFFF',
+  stamp_inactive_color: '#FFFFFF33',
+  stamp_icon: 'check',
   lock_card_design: true,
   is_active: true,
   passkit_enabled: false,
@@ -77,6 +81,10 @@ const storePayload = (data) => ({
   reward_description: data.reward_description,
   card_bg_color: data.card_bg_color || '#7C3AED',
   card_text_color: data.card_text_color || '#FFFFFF',
+  card_logo_url: data.card_logo_url || null,
+  stamp_active_color: data.stamp_active_color || '#FFFFFF',
+  stamp_inactive_color: data.stamp_inactive_color || '#FFFFFF33',
+  stamp_icon: data.stamp_icon || 'check',
   lock_card_design: Boolean(data.lock_card_design),
   is_active: Boolean(data.is_active),
   passkit_enabled: Boolean(data.passkit_enabled),
@@ -238,6 +246,16 @@ function StampCardPreview({ design }) {
   const stamps = Math.max(1, Math.min(Number(design.stamps_required) || 10, 30));
   const bgColor = design.card_bg_color || '#7C3AED';
   const textColor = design.card_text_color || '#FFFFFF';
+  const activeStampColor = design.stamp_active_color || '#FFFFFF';
+  const inactiveStampColor = design.stamp_inactive_color || '#FFFFFF33';
+  const stampIcon = {
+    check: '✓',
+    star: '★',
+    heart: '♥',
+    coffee: '☕',
+    gift: '◆',
+    none: '',
+  }[design.stamp_icon || 'check'];
 
   return (
     <div className="rounded-2xl p-5 shadow-xl min-h-64 flex flex-col justify-between overflow-hidden" style={{ background: `linear-gradient(135deg, ${bgColor}, ${bgColor}cc)`, color: textColor }}>
@@ -246,15 +264,21 @@ function StampCardPreview({ design }) {
           <p className="text-xs opacity-75">بطاقة طوابع</p>
           <h3 className="text-xl font-bold truncate">{design.name || 'اسم المتجر'}</h3>
         </div>
-        <div className="w-11 h-11 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-          <Stamp className="w-5 h-5" />
-        </div>
+        {design.card_logo_url || design.logo_url ? (
+          <img src={design.card_logo_url || design.logo_url} className="w-11 h-11 rounded-xl object-cover bg-white/15 border border-white/20 shrink-0" alt="logo" />
+        ) : (
+          <div className="w-11 h-11 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+            <Stamp className="w-5 h-5" />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-5 gap-2 my-5">
         {Array.from({ length: stamps }).map((_, index) => (
           <div key={index} className="aspect-square rounded-full border-2 border-white/45 bg-white/10 flex items-center justify-center">
-            {index === 0 && <CheckCircle className="w-4 h-4 text-white" />}
+            {index === 0 && (
+              <span className="text-sm font-bold" style={{ color: activeStampColor }}>{stampIcon}</span>
+            )}
           </div>
         ))}
       </div>
@@ -269,6 +293,11 @@ function StampCardPreview({ design }) {
 
 function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSave, isPending, syncMessage }) {
   const selectedStore = stores.find(store => store.id === selectedId);
+  const uploadLogo = async (file) => {
+    if (!file) return;
+    const result = await db.integrations.Core.UploadFile(file);
+    setDraft({ ...draft, card_logo_url: result.file_url });
+  };
 
   if (stores.length === 0) return null;
 
@@ -307,6 +336,17 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
             <Input className="mt-1" value={draft.reward_description || ''} onChange={e => setDraft({ ...draft, reward_description: e.target.value })} placeholder="مثال: مشروب مجاني بعد 10 زيارات" />
           </div>
 
+          <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
+            <div>
+              <Label>لوجو البطاقة</Label>
+              <Input className="mt-1" dir="ltr" value={draft.card_logo_url || ''} onChange={e => setDraft({ ...draft, card_logo_url: e.target.value })} placeholder="https://..." />
+            </div>
+            <div>
+              <Label className="sr-only">رفع لوجو</Label>
+              <Input type="file" accept="image/*" className="mt-1 w-44" onChange={e => uploadLogo(e.target.files?.[0])} />
+            </div>
+          </div>
+
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
               <Label>لون البطاقة</Label>
@@ -321,6 +361,37 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
                 <input type="color" className="w-10 h-9 rounded-md border border-input cursor-pointer" value={draft.card_text_color || '#FFFFFF'} onChange={e => setDraft({ ...draft, card_text_color: e.target.value })} />
                 <Input dir="ltr" value={draft.card_text_color || ''} onChange={e => setDraft({ ...draft, card_text_color: e.target.value })} />
               </div>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div>
+              <Label>لون الطابع المكتمل</Label>
+              <div className="flex gap-2 mt-1">
+                <input type="color" className="w-10 h-9 rounded-md border border-input cursor-pointer" value={draft.stamp_active_color || '#FFFFFF'} onChange={e => setDraft({ ...draft, stamp_active_color: e.target.value })} />
+                <Input dir="ltr" value={draft.stamp_active_color || ''} onChange={e => setDraft({ ...draft, stamp_active_color: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>لون الطابع الفارغ</Label>
+              <div className="flex gap-2 mt-1">
+                <input type="color" className="w-10 h-9 rounded-md border border-input cursor-pointer" value={(draft.stamp_inactive_color || '#FFFFFF33').slice(0, 7)} onChange={e => setDraft({ ...draft, stamp_inactive_color: e.target.value })} />
+                <Input dir="ltr" value={draft.stamp_inactive_color || ''} onChange={e => setDraft({ ...draft, stamp_inactive_color: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>شكل الطابع</Label>
+              <Select value={draft.stamp_icon || 'check'} onValueChange={v => setDraft({ ...draft, stamp_icon: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="check">صح</SelectItem>
+                  <SelectItem value="star">نجمة</SelectItem>
+                  <SelectItem value="heart">قلب</SelectItem>
+                  <SelectItem value="coffee">قهوة</SelectItem>
+                  <SelectItem value="gift">ماسة</SelectItem>
+                  <SelectItem value="none">بدون رمز</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -382,6 +453,10 @@ export default function SuperAdmin() {
       reward_description: store.reward_description || '',
       card_bg_color: store.card_bg_color || '#7C3AED',
       card_text_color: store.card_text_color || '#FFFFFF',
+      card_logo_url: store.card_logo_url || store.logo_url || '',
+      stamp_active_color: store.stamp_active_color || '#FFFFFF',
+      stamp_inactive_color: store.stamp_inactive_color || '#FFFFFF33',
+      stamp_icon: store.stamp_icon || 'check',
       lock_card_design: Boolean(store.lock_card_design),
     });
   }, [allStores, designStoreId]);
@@ -442,6 +517,10 @@ export default function SuperAdmin() {
         reward_description: designDraft.reward_description,
         card_bg_color: designDraft.card_bg_color || '#7C3AED',
         card_text_color: designDraft.card_text_color || '#FFFFFF',
+        card_logo_url: designDraft.card_logo_url || null,
+        stamp_active_color: designDraft.stamp_active_color || '#FFFFFF',
+        stamp_inactive_color: designDraft.stamp_inactive_color || '#FFFFFF33',
+        stamp_icon: designDraft.stamp_icon || 'check',
         lock_card_design: Boolean(designDraft.lock_card_design),
       });
 
