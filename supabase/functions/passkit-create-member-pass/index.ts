@@ -66,6 +66,18 @@ const stampSymbol = (icon?: string) => ({
   check: '✓',
 }[icon || 'check'] || '✓');
 
+const stampText = (store: Record<string, string | number | null>, customer: Record<string, string | number | null>) => {
+  const current = Math.max(0, Number(customer.current_stamps) || 0);
+  const total = Math.max(1, Math.min(Number(store.stamps_required) || 10, 20));
+  const filled = stampSymbol(String(store.stamp_icon || 'check'));
+  const empty = '○';
+  const stamps = Array.from({ length: total })
+    .map((_, index) => (index < current ? filled : empty))
+    .join(' ');
+  const reward = String(store.reward_description || '');
+  return `الطوابع: ${stamps}\n${current} / ${total}${reward ? `\nالمكافأة: ${reward}` : ''}`;
+};
+
 const createStampProfileImage = (store: Record<string, string | number | null>, customer: Record<string, string | number | null>) => {
   const current = Math.max(0, Number(customer.current_stamps) || 0);
   const total = Math.max(1, Math.min(Number(store.stamps_required) || 10, 12));
@@ -164,6 +176,9 @@ serve(async (req) => {
       emailAddress: customer.email,
       points: customer.current_stamps || 0,
       profileImage: createStampProfileImage(store, customer),
+      universal: {
+        info: stampText(store, customer),
+      },
       metaData: {
         storeId,
         customerId,
