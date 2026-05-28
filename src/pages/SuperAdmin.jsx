@@ -1,13 +1,13 @@
 import db from '@/api/base44Client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
 import { motion } from 'framer-motion';
 import {
   Shield, Building2, Plus, MoreHorizontal, CheckCircle, XCircle, Lock, Search,
-  Edit, Trash2, Crown, Star, Globe, UserPlus, Palette
+  Edit, Trash2, Crown, Star, Globe, UserPlus, Palette, Save, Stamp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -234,16 +234,145 @@ function StoreForm({ form, setForm, submitLabel, isPending, onSubmit }) {
   );
 }
 
+function StampCardPreview({ design }) {
+  const stamps = Math.max(1, Math.min(Number(design.stamps_required) || 10, 30));
+  const bgColor = design.card_bg_color || '#7C3AED';
+  const textColor = design.card_text_color || '#FFFFFF';
+
+  return (
+    <div className="rounded-2xl p-5 shadow-xl min-h-64 flex flex-col justify-between overflow-hidden" style={{ background: `linear-gradient(135deg, ${bgColor}, ${bgColor}cc)`, color: textColor }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs opacity-75">بطاقة طوابع</p>
+          <h3 className="text-xl font-bold truncate">{design.name || 'اسم المتجر'}</h3>
+        </div>
+        <div className="w-11 h-11 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+          <Stamp className="w-5 h-5" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-5 gap-2 my-5">
+        {Array.from({ length: stamps }).map((_, index) => (
+          <div key={index} className="aspect-square rounded-full border-2 border-white/45 bg-white/10 flex items-center justify-center">
+            {index === 0 && <CheckCircle className="w-4 h-4 text-white" />}
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-1">
+        <p className="text-sm font-semibold">{design.reward_description || 'مكافأة مجانية عند اكتمال الطوابع'}</p>
+        <p className="text-xs opacity-75">1 / {stamps} طابع</p>
+      </div>
+    </div>
+  );
+}
+
+function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSave, isPending }) {
+  const selectedStore = stores.find(store => store.id === selectedId);
+
+  if (stores.length === 0) return null;
+
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="font-bold flex items-center gap-2"><Palette className="w-4 h-4 text-primary" />مصمم بطاقات الطوابع</h3>
+          <p className="text-xs text-muted-foreground mt-1">اختر المتجر وعدّل شكل بطاقة الطوابع التي تظهر للعميل.</p>
+        </div>
+        <Select value={selectedId || ''} onValueChange={onSelect}>
+          <SelectTrigger className="w-56"><SelectValue placeholder="اختر متجر" /></SelectTrigger>
+          <SelectContent>
+            {stores.map(store => <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid lg:grid-cols-[360px_1fr] gap-5 p-5">
+        <StampCardPreview design={{ ...selectedStore, ...draft }} />
+
+        <div className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <Label>اسم البطاقة</Label>
+              <Input className="mt-1" value={draft.name || ''} onChange={e => setDraft({ ...draft, name: e.target.value })} />
+            </div>
+            <div>
+              <Label>عدد الطوابع</Label>
+              <Input type="number" min={1} max={30} className="mt-1" dir="ltr" value={draft.stamps_required || 10} onChange={e => setDraft({ ...draft, stamps_required: e.target.value })} />
+            </div>
+          </div>
+
+          <div>
+            <Label>وصف المكافأة</Label>
+            <Input className="mt-1" value={draft.reward_description || ''} onChange={e => setDraft({ ...draft, reward_description: e.target.value })} placeholder="مثال: مشروب مجاني بعد 10 زيارات" />
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <Label>لون البطاقة</Label>
+              <div className="flex gap-2 mt-1">
+                <input type="color" className="w-10 h-9 rounded-md border border-input cursor-pointer" value={draft.card_bg_color || '#7C3AED'} onChange={e => setDraft({ ...draft, card_bg_color: e.target.value })} />
+                <Input dir="ltr" value={draft.card_bg_color || ''} onChange={e => setDraft({ ...draft, card_bg_color: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>لون النص</Label>
+              <div className="flex gap-2 mt-1">
+                <input type="color" className="w-10 h-9 rounded-md border border-input cursor-pointer" value={draft.card_text_color || '#FFFFFF'} onChange={e => setDraft({ ...draft, card_text_color: e.target.value })} />
+                <Input dir="ltr" value={draft.card_text_color || ''} onChange={e => setDraft({ ...draft, card_text_color: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border">
+            <div>
+              <p className="text-sm font-medium">قفل التعديل على صاحب المتجر</p>
+              <p className="text-xs text-muted-foreground">السوبر أدمن فقط يتحكم في شكل البطاقة عند التفعيل.</p>
+            </div>
+            <Switch checked={Boolean(draft.lock_card_design)} onCheckedChange={v => setDraft({ ...draft, lock_card_design: v })} />
+          </div>
+
+          <Button className="w-full bg-primary hover:bg-primary/90" disabled={!selectedId || isPending} onClick={onSave}>
+            <Save className="w-4 h-4 ml-2" />
+            {isPending ? 'جاري الحفظ...' : 'حفظ تصميم البطاقة'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SuperAdmin() {
   const { allStores, reloadStores } = useStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [designStoreId, setDesignStoreId] = useState('');
+  const [designDraft, setDesignDraft] = useState(emptyForm);
   const [showAdd, setShowAdd] = useState(false);
   const [editingStore, setEditingStore] = useState(null);
   const [userStore, setUserStore] = useState(null);
   const [userForm, setUserForm] = useState({ name: '', email: '', password: '' });
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!designStoreId && allStores[0]?.id) {
+      setDesignStoreId(allStores[0].id);
+    }
+  }, [allStores, designStoreId]);
+
+  useEffect(() => {
+    const store = allStores.find(s => s.id === designStoreId);
+    if (!store) return;
+    setDesignDraft({
+      name: store.name || '',
+      stamps_required: store.stamps_required || 10,
+      reward_description: store.reward_description || '',
+      card_bg_color: store.card_bg_color || '#7C3AED',
+      card_text_color: store.card_text_color || '#FFFFFF',
+      lock_card_design: Boolean(store.lock_card_design),
+    });
+  }, [allStores, designStoreId]);
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
@@ -289,6 +418,19 @@ export default function SuperAdmin() {
     mutationFn: ({ id, data }) => db.entities.Store.update(id, data),
     onSuccess: reloadStores,
     onError: (err) => setError(err.message || 'تعذر تحديث المتجر.'),
+  });
+
+  const designMutation = useMutation({
+    mutationFn: () => db.entities.Store.update(designStoreId, {
+      name: designDraft.name,
+      stamps_required: Number(designDraft.stamps_required) || 10,
+      reward_description: designDraft.reward_description,
+      card_bg_color: designDraft.card_bg_color || '#7C3AED',
+      card_text_color: designDraft.card_text_color || '#FFFFFF',
+      lock_card_design: Boolean(designDraft.lock_card_design),
+    }),
+    onSuccess: reloadStores,
+    onError: (err) => setError(err.message || 'تعذر حفظ تصميم البطاقة.'),
   });
 
   const createUserMutation = useMutation({
@@ -390,6 +532,16 @@ export default function SuperAdmin() {
           </motion.div>
         ))}
       </div>
+
+      <CardDesignStudio
+        stores={allStores}
+        selectedId={designStoreId}
+        onSelect={setDesignStoreId}
+        draft={designDraft}
+        setDraft={setDesignDraft}
+        onSave={() => designMutation.mutate()}
+        isPending={designMutation.isPending}
+      />
 
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48 max-w-sm">
