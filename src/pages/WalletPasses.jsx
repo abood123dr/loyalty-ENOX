@@ -1,6 +1,6 @@
 import db from '@/api/base44Client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 export default function WalletPasses() {
   const { currentStore } = useStore();
   const queryClient = useQueryClient();
+  const [message, setMessage] = useState(null);
+  const [issuingCustomerId, setIssuingCustomerId] = useState(null);
 
   const { data: customers = [] } = useQuery({
     queryKey: ['store-customers', currentStore?.id],
@@ -21,11 +23,30 @@ export default function WalletPasses() {
   });
 
   const issuePassMutation = useMutation({
-    mutationFn: (customerId) => db.integrations.PassKit.createMemberPass({
-      storeId: currentStore.id,
-      customerId,
-    }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['store-customers', currentStore?.id] }),
+    mutationFn: async (customerId) => {
+      setMessage(null);
+      setIssuingCustomerId(customerId);
+      return db.integrations.PassKit.createMemberPass({
+        storeId: currentStore.id,
+        customerId,
+      });
+    },
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ['store-customers', currentStore?.id] });
+      setMessage({
+        type: 'success',
+        text: result?.passUrl
+          ? 'تم إصدار البطاقة بنجاح. استخدم زر فتح البطاقة.'
+          : 'تم إرسال الطلب إلى PassKit، لكن لم يرجع رابط بطاقة. راجع Logs في Supabase Edge Function.',
+      });
+    },
+    onError: (error) => {
+      setMessage({
+        type: 'error',
+        text: error?.message || 'تعذر إصدار البطاقة. راجع Logs في Supabase Edge Function.',
+      });
+    },
+    onSettled: () => setIssuingCustomerId(null),
   });
 
   const passkitReady = Boolean(currentStore?.passkit_enabled && currentStore?.passkit_program_id);
@@ -40,6 +61,16 @@ export default function WalletPasses() {
         <p className="text-sm text-muted-foreground mt-1">إدارة بطاقات Apple Wallet و Google Wallet عبر PassKit</p>
       </div>
 
+      {message && (
+        <div className={`rounded-xl border p-3 text-sm whitespace-pre-wrap ${
+          message.type === 'error'
+            ? 'border-destructive/20 bg-destructive/10 text-destructive'
+            : 'border-success/20 bg-success/10 text-success'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -52,8 +83,8 @@ export default function WalletPasses() {
           <p className="font-semibold text-sm mb-1">تكامل PassKit</p>
           <p className="text-sm text-muted-foreground mb-3">
             {passkitReady
-              ? 'PassKit مفعّل لهذا المتجر. يمكنك إصدار بطاقة Wallet لكل عميل من القائمة أدناه.'
-              : 'فعّل PassKit من لوحة السوبر أدمن وأدخل Program ID لهذا المتجر قبل إصدار البطاقات.'}
+              ? 'PassKit مفعل لهذا المتجر. يمكنك إصدار بطاقة Wallet لكل عميل من القائمة أدناه.'
+              : 'فعل PassKit من لوحة السوبر أدمن وأدخل Program ID لهذا المتجر قبل إصدار البطاقات.'}
           </p>
           <Badge className={passkitReady ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}>
             {passkitReady ? 'متصل' : 'غير متصل'}
@@ -113,10 +144,10 @@ export default function WalletPasses() {
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={!passkitReady || issuePassMutation.isPending}
+                    disabled={!passkitReady || issuingCustomerId === c.id}
                     onClick={() => issuePassMutation.mutate(c.id)}
                   >
-                    إصدار بطاقة
+                    {issuingCustomerId === c.id ? 'جاري الإصدار...' : 'إصدار بطاقة'}
                   </Button>
                 )}
               </div>
