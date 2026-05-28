@@ -1,0 +1,89 @@
+{
+  "name": "LoyaltyCard",
+  "type": "object",
+  "properties": {
+    "business_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "description": "\u0627\u0633\u0645 \u0627\u0644\u0628\u0637\u0627\u0642\u0629"
+    },
+    "name_en": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "points",
+        "stamps",
+        "cashback",
+        "tier",
+        "membership"
+      ],
+      "default": "points"
+    },
+    "card_template": {
+      "type": "string",
+      "enum": [
+        "coffee",
+        "car_wash",
+        "barber",
+        "restaurant_vip",
+        "membership",
+        "custom"
+      ],
+      "default": "custom"
+    },
+    "description": {
+      "type": "string"
+    },
+    "points_per_visit": {
+      "type": "number",
+      "default": 1
+    },
+    "stamps_required": {
+      "type": "number",
+      "default": 10
+    },
+    "cashback_percentage": {
+      "type": "number",
+      "default": 0
+    },
+    "reward_description": {
+      "type": "string"
+    },
+    "color": {
+      "type": "string",
+      "default": "#7C3AED"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "total_issued": {
+      "type": "number",
+      "default": 0
+    },
+    "active_count": {
+      "type": "number",
+      "default": 0
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "valid_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "valid_to": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "business_id",
+    "name",
+    "type"
+  ]
+}

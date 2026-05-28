@@ -1,0 +1,58 @@
+{
+  "name": "StoreCustomer",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string",
+      "description": "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u062a\u062c\u0631 (Multi-Tenant key)"
+    },
+    "full_name": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "current_stamps": {
+      "type": "number",
+      "default": 0
+    },
+    "total_stamps_earned": {
+      "type": "number",
+      "default": 0
+    },
+    "total_rewards_redeemed": {
+      "type": "number",
+      "default": 0
+    },
+    "last_stamp_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "wallet_pass_id": {
+      "type": "string",
+      "description": "PassKit Pass ID"
+    },
+    "wallet_type": {
+      "type": "string",
+      "enum": [
+        "none",
+        "apple",
+        "google",
+        "both"
+      ],
+      "default": "none"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "store_id",
+    "full_name",
+    "phone"
+  ]
+}

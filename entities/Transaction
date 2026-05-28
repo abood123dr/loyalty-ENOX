@@ -1,0 +1,41 @@
+{
+  "name": "Transaction",
+  "type": "object",
+  "properties": {
+    "business_id": {
+      "type": "string"
+    },
+    "customer_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "earn",
+        "redeem",
+        "bonus",
+        "referral",
+        "birthday",
+        "expire"
+      ]
+    },
+    "points": {
+      "type": "number"
+    },
+    "description": {
+      "type": "string"
+    },
+    "branch_id": {
+      "type": "string"
+    },
+    "staff_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "business_id",
+    "customer_id",
+    "type",
+    "points"
+  ]
+}

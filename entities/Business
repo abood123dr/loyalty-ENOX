@@ -1,0 +1,105 @@
+{
+  "name": "Business",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "\u0627\u0633\u0645 \u0627\u0644\u0646\u0634\u0627\u0637 \u0627\u0644\u062a\u062c\u0627\u0631\u064a"
+    },
+    "name_en": {
+      "type": "string",
+      "description": "Business name in English"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "restaurant",
+        "cafe",
+        "barber",
+        "laundry",
+        "retail",
+        "other"
+      ],
+      "description": "\u0646\u0648\u0639 \u0627\u0644\u0646\u0634\u0627\u0637"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "\u0631\u0627\u0628\u0637 \u0627\u0644\u0634\u0639\u0627\u0631"
+    },
+    "cover_url": {
+      "type": "string",
+      "description": "\u0631\u0627\u0628\u0637 \u0635\u0648\u0631\u0629 \u0627\u0644\u063a\u0644\u0627\u0641"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "subdomain": {
+      "type": "string",
+      "description": "\u0627\u0644\u062f\u0648\u0645\u064a\u0646 \u0627\u0644\u0641\u0631\u0639\u064a"
+    },
+    "subscription_plan": {
+      "type": "string",
+      "enum": [
+        "starter",
+        "pro",
+        "enterprise"
+      ],
+      "default": "starter"
+    },
+    "subscription_status": {
+      "type": "string",
+      "enum": [
+        "trial",
+        "active",
+        "expired",
+        "cancelled"
+      ],
+      "default": "trial"
+    },
+    "trial_end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "max_customers": {
+      "type": "number",
+      "default": 100
+    },
+    "max_staff": {
+      "type": "number",
+      "default": 3
+    },
+    "max_branches": {
+      "type": "number",
+      "default": 1
+    },
+    "primary_color": {
+      "type": "string",
+      "default": "#7C3AED"
+    },
+    "currency": {
+      "type": "string",
+      "default": "SAR"
+    },
+    "timezone": {
+      "type": "string",
+      "default": "Asia/Riyadh"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "settings": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "name",
+    "type"
+  ]
+}

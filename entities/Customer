@@ -1,0 +1,101 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "business_id": {
+      "type": "string",
+      "description": "\u0645\u0639\u0631\u0641 \u0627\u0644\u0646\u0634\u0627\u0637 \u0627\u0644\u062a\u062c\u0627\u0631\u064a"
+    },
+    "full_name": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "birth_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "gender": {
+      "type": "string",
+      "enum": [
+        "male",
+        "female",
+        "other"
+      ]
+    },
+    "total_visits": {
+      "type": "number",
+      "default": 0
+    },
+    "total_points": {
+      "type": "number",
+      "default": 0
+    },
+    "used_points": {
+      "type": "number",
+      "default": 0
+    },
+    "tier": {
+      "type": "string",
+      "enum": [
+        "bronze",
+        "silver",
+        "gold",
+        "platinum"
+      ],
+      "default": "bronze"
+    },
+    "device_type": {
+      "type": "string",
+      "enum": [
+        "ios",
+        "android",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "last_visit": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "wallet_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "apple",
+        "google",
+        "both"
+      ],
+      "default": "none"
+    },
+    "referral_count": {
+      "type": "number",
+      "default": 0
+    },
+    "referral_code": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "business_id",
+    "full_name",
+    "phone"
+  ]
+}

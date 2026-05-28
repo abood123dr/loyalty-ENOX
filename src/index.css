@@ -1,0 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-arabic: 'IBM Plex Sans Arabic', sans-serif;
+    --background: 250 20% 98%;
+    --foreground: 250 25% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 250 25% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 250 25% 10%;
+    --primary: 262 80% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 262 30% 95%;
+    --secondary-foreground: 262 40% 30%;
+    --muted: 250 15% 95%;
+    --muted-foreground: 250 10% 45%;
+    --accent: 262 50% 93%;
+    --accent-foreground: 262 60% 35%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 250 15% 91%;
+    --input: 250 15% 91%;
+    --ring: 262 80% 55%;
+    --chart-1: 262 80% 55%;
+    --chart-2: 190 70% 50%;
+    --chart-3: 150 60% 45%;
+    --chart-4: 35 85% 55%;
+    --chart-5: 340 70% 55%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 250 15% 30%;
+    --sidebar-primary: 262 80% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 262 50% 96%;
+    --sidebar-accent-foreground: 262 60% 35%;
+    --sidebar-border: 250 15% 93%;
+    --sidebar-ring: 262 80% 55%;
+    --success: 150 60% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 35 85% 55%;
+    --warning-foreground: 0 0% 10%;
+  }
+
+  .dark {
+    --background: 250 20% 7%;
+    --foreground: 250 10% 95%;
+    --card: 250 20% 10%;
+    --card-foreground: 250 10% 95%;
+    --popover: 250 20% 10%;
+    --popover-foreground: 250 10% 95%;
+    --primary: 262 75% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 262 20% 15%;
+    --secondary-foreground: 262 20% 80%;
+    --muted: 250 15% 14%;
+    --muted-foreground: 250 10% 55%;
+    --accent: 262 30% 18%;
+    --accent-foreground: 262 40% 80%;
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 250 15% 16%;
+    --input: 250 15% 16%;
+    --ring: 262 75% 60%;
+    --chart-1: 262 75% 60%;
+    --chart-2: 190 65% 55%;
+    --chart-3: 150 55% 50%;
+    --chart-4: 35 80% 60%;
+    --chart-5: 340 65% 60%;
+    --sidebar-background: 250 20% 8%;
+    --sidebar-foreground: 250 10% 80%;
+    --sidebar-primary: 262 75% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 262 25% 15%;
+    --sidebar-accent-foreground: 262 30% 80%;
+    --sidebar-border: 250 15% 14%;
+    --sidebar-ring: 262 75% 60%;
+    --success: 150 55% 50%;
+    --success-foreground: 0 0% 100%;
+    --warning: 35 80% 60%;
+    --warning-foreground: 0 0% 10%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    direction: rtl;
+  }
+  body {
+    @apply bg-background text-foreground font-arabic;
+  }
+}

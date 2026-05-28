@@ -1,0 +1,42 @@
+{
+  "name": "Branch",
+  "type": "object",
+  "properties": {
+    "business_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "manager_name": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "daily_visits": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "business_id",
+    "name"
+  ]
+}

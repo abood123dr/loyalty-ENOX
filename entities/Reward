@@ -1,0 +1,63 @@
+{
+  "name": "Reward",
+  "type": "object",
+  "properties": {
+    "business_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "discount",
+        "free_item",
+        "cashback",
+        "birthday",
+        "referral",
+        "promo_code"
+      ],
+      "default": "discount"
+    },
+    "points_required": {
+      "type": "number",
+      "default": 0
+    },
+    "discount_value": {
+      "type": "number",
+      "default": 0
+    },
+    "promo_code": {
+      "type": "string"
+    },
+    "max_redemptions": {
+      "type": "number",
+      "default": -1
+    },
+    "current_redemptions": {
+      "type": "number",
+      "default": 0
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "valid_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "valid_to": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "business_id",
+    "name",
+    "type"
+  ]
+}

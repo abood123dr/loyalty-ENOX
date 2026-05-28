@@ -1,0 +1,36 @@
+{
+  "name": "StampScan",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "customer_id": {
+      "type": "string"
+    },
+    "stamps_added": {
+      "type": "number",
+      "default": 1
+    },
+    "scanned_by": {
+      "type": "string",
+      "description": "user_id of staff"
+    },
+    "branch_name": {
+      "type": "string"
+    },
+    "is_reward": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u0647\u0644 \u0647\u0630\u0627 Scan \u0643\u0627\u0646 \u0645\u0643\u0627\u0641\u0623\u0629\u061f"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "store_id",
+    "customer_id",
+    "stamps_added"
+  ]
+}

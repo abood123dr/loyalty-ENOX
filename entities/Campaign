@@ -1,0 +1,74 @@
+{
+  "name": "Campaign",
+  "type": "object",
+  "properties": {
+    "business_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "push",
+        "sms",
+        "whatsapp",
+        "email",
+        "wallet"
+      ],
+      "default": "push"
+    },
+    "message": {
+      "type": "string"
+    },
+    "target_segment": {
+      "type": "string",
+      "enum": [
+        "all",
+        "new",
+        "inactive",
+        "vip",
+        "birthday",
+        "custom"
+      ],
+      "default": "all"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "scheduled",
+        "sent",
+        "cancelled"
+      ],
+      "default": "draft"
+    },
+    "scheduled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sent_count": {
+      "type": "number",
+      "default": 0
+    },
+    "open_count": {
+      "type": "number",
+      "default": 0
+    },
+    "click_count": {
+      "type": "number",
+      "default": 0
+    },
+    "is_ai_generated": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "business_id",
+    "name",
+    "type",
+    "message"
+  ]
+}

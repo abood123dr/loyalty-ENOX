@@ -1,0 +1,50 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "geofence",
+        "reward",
+        "welcome"
+      ],
+      "default": "manual"
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "all",
+        "custom"
+      ],
+      "default": "all"
+    },
+    "sent_count": {
+      "type": "number",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "sent"
+      ],
+      "default": "draft"
+    }
+  },
+  "required": [
+    "store_id",
+    "title",
+    "message"
+  ]
+}
