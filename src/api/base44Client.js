@@ -106,29 +106,10 @@ const auth = {
     return data;
   },
   createStoreUser: async ({ email, password, name, role = 'owner', storeId }) => {
-    const normalizedEmail = email?.trim().toLowerCase();
-    const { data: { session: adminSession } } = await supabase.auth.getSession();
-
-    const { data, error } = await supabase.auth.signUp({
-      email: normalizedEmail,
-      password,
-      options: {
-        data: {
-          name,
-          role,
-          store_id: storeId,
-        },
-      },
+    const { data, error } = await supabase.functions.invoke('admin-create-store-user', {
+      body: { email, password, name, role, storeId },
     });
     if (error) throw error;
-
-    if (adminSession?.access_token && adminSession?.refresh_token) {
-      await supabase.auth.setSession({
-        access_token: adminSession.access_token,
-        refresh_token: adminSession.refresh_token,
-      });
-    }
-
     return data;
   },
 };
