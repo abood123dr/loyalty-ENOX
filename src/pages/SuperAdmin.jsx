@@ -267,7 +267,7 @@ function StampCardPreview({ design }) {
   );
 }
 
-function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSave, isPending }) {
+function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSave, isPending, syncMessage }) {
   const selectedStore = stores.find(store => store.id === selectedId);
 
   if (stores.length === 0) return null;
@@ -332,9 +332,20 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
             <Switch checked={Boolean(draft.lock_card_design)} onCheckedChange={v => setDraft({ ...draft, lock_card_design: v })} />
           </div>
 
+          {syncMessage && (
+            <div className={cn(
+              'rounded-xl border p-3 text-sm',
+              syncMessage.type === 'error'
+                ? 'border-destructive/20 bg-destructive/10 text-destructive'
+                : 'border-success/20 bg-success/10 text-success'
+            )}>
+              {syncMessage.text}
+            </div>
+          )}
+
           <Button className="w-full bg-primary hover:bg-primary/90" disabled={!selectedId || isPending} onClick={onSave}>
             <Save className="w-4 h-4 ml-2" />
-            {isPending ? 'جاري الحفظ...' : 'حفظ تصميم البطاقة'}
+            {isPending ? 'جاري الحفظ والمزامنة...' : 'حفظ ومزامنة التصميم مع PassKit'}
           </Button>
         </div>
       </div>
@@ -354,6 +365,7 @@ export default function SuperAdmin() {
   const [userForm, setUserForm] = useState({ name: '', email: '', password: '' });
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
+  const [designSyncMessage, setDesignSyncMessage] = useState(null);
 
   useEffect(() => {
     if (!designStoreId && allStores[0]?.id) {
@@ -421,16 +433,36 @@ export default function SuperAdmin() {
   });
 
   const designMutation = useMutation({
-    mutationFn: () => db.entities.Store.update(designStoreId, {
-      name: designDraft.name,
-      stamps_required: Number(designDraft.stamps_required) || 10,
-      reward_description: designDraft.reward_description,
-      card_bg_color: designDraft.card_bg_color || '#7C3AED',
-      card_text_color: designDraft.card_text_color || '#FFFFFF',
-      lock_card_design: Boolean(designDraft.lock_card_design),
-    }),
-    onSuccess: reloadStores,
-    onError: (err) => setError(err.message || 'تعذر حفظ تصميم البطاقة.'),
+    mutationFn: async () => {
+      setDesignSyncMessage(null);
+      const selectedStore = allStores.find(store => store.id === designStoreId);
+      await db.entities.Store.update(designStoreId, {
+        name: designDraft.name,
+        stamps_required: Number(designDraft.stamps_required) || 10,
+        reward_description: designDraft.reward_description,
+        card_bg_color: designDraft.card_bg_color || '#7C3AED',
+        card_text_color: designDraft.card_text_color || '#FFFFFF',
+        lock_card_design: Boolean(designDraft.lock_card_design),
+      });
+
+      if (!selectedStore?.passkit_enabled || !selectedStore?.passkit_program_id) {
+        return { updated: 0, skipped: true };
+      }
+
+      return db.integrations.PassKit.syncStoreDesign({ storeId: designStoreId });
+    },
+    onSuccess: (result) => {
+      reloadStores();
+      setDesignSyncMessage({
+        type: result?.failed ? 'error' : 'success',
+        text: result?.skipped
+          ? 'تم حفظ التصميم محليًا. فعل PassKit لهذا المتجر حتى تتم مزامنته مع البطاقة.'
+          : `تم حفظ التصميم ومزامنة ${result?.updated || 0} بطاقة في PassKit${result?.failed ? `، وفشل ${result.failed}` : ''}.`,
+      });
+    },
+    onError: (err) => {
+      setDesignSyncMessage({ type: 'error', text: err.message || 'تعذر حفظ أو مزامنة تصميم البطاقة مع PassKit.' });
+    },
   });
 
   const createUserMutation = useMutation({
@@ -541,6 +573,7 @@ export default function SuperAdmin() {
         setDraft={setDesignDraft}
         onSave={() => designMutation.mutate()}
         isPending={designMutation.isPending}
+        syncMessage={designSyncMessage}
       />
 
       <div className="flex flex-wrap gap-3 items-center">

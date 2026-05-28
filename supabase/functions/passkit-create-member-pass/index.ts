@@ -75,7 +75,7 @@ serve(async (req) => {
 
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id,name,slug,stamps_required,reward_description,passkit_program_id,passkit_tier_id,passkit_enabled')
+      .select('id,name,slug,stamps_required,reward_description,card_bg_color,card_text_color,passkit_program_id,passkit_tier_id,passkit_enabled')
       .eq('id', storeId)
       .single();
     if (storeError) throw storeError;
@@ -116,10 +116,19 @@ serve(async (req) => {
       metaData: {
         storeId,
         customerId,
+        storeName: store.name,
         currentStamps: String(customer.current_stamps || 0),
         stampsRequired: String(store.stamps_required || 10),
         reward: store.reward_description || '',
         dynamicUrl: `${req.headers.get('origin') || ''}/store/${store.slug}`,
+      },
+      passOverrides: {
+        colors: {
+          backgroundColor: store.card_bg_color || '#7C3AED',
+          labelColor: store.card_text_color || '#FFFFFF',
+          textColor: store.card_text_color || '#FFFFFF',
+          foregroundColor: store.card_text_color || '#FFFFFF',
+        },
       },
     };
 
