@@ -40,20 +40,6 @@ const signJwt = async (claims: Record<string, unknown>, privateKeyPem: string) =
 
 const safeId = (value: string) => String(value || 'item').replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 80);
 
-const localized = (value: string, language = 'ar-SA') => ({
-  defaultValue: { language, value },
-});
-
-const image = (uri: string, label: string) => ({
-  sourceUri: { uri },
-  contentDescription: localized(label),
-});
-
-const publicImage = (url?: string | null) => {
-  if (url && /^https:\/\//i.test(url)) return url;
-  return 'https://www.gstatic.com/images/branding/product/1x/wallet_48dp.png';
-};
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -105,16 +91,12 @@ serve(async (req) => {
     const objectId = customer.google_wallet_object_id || `${issuerId}.customer_${safeId(customer.id.replaceAll('-', ''))}`;
     const total = store.stamps_required || 10;
     const current = customer.current_stamps || 0;
-    const logo = publicImage(store.card_logo_url || store.logo_url);
-    const hero = publicImage(store.cover_url || store.card_logo_url || store.logo_url);
 
     const loyaltyClass = {
       id: classId,
       issuerName: store.name,
-      reviewStatus: 'UNDER_REVIEW',
       programName: `${store.name} Rewards`,
-      programLogo: image(logo, `${store.name} logo`),
-      hexBackgroundColor: store.card_bg_color || '#4b2a25',
+      reviewStatus: 'UNDER_REVIEW',
     };
 
     const loyaltyObject = {
@@ -123,7 +105,6 @@ serve(async (req) => {
       state: 'ACTIVE',
       accountId: customer.phone || customer.id,
       accountName: customer.full_name,
-      heroImage: image(hero, `${store.name} card image`),
       barcode: {
         type: 'QR_CODE',
         value: cardUrl,
