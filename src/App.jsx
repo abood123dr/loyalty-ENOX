@@ -24,6 +24,7 @@ const Notifications = lazy(() => import('@/pages/Notifications'));
 const Settings = lazy(() => import('@/pages/Settings'));
 const SuperAdmin = lazy(() => import('@/pages/SuperAdmin'));
 const StoreRegister = lazy(() => import('@/pages/StoreRegister'));
+const CustomerDigitalCard = lazy(() => import('@/pages/CustomerDigitalCard'));
 const Analytics = lazy(() => import('@/pages/Analytics'));
 const Rewards = lazy(() => import('@/pages/Rewards'));
 const Campaigns = lazy(() => import('@/pages/Campaigns'));
@@ -71,6 +72,7 @@ const AuthenticatedApp = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/store/:slug" element={<StoreRegister />} />
+          <Route path="/card/:customerId" element={<CustomerDigitalCard />} />
 
           {/* Protected Dashboard Routes */}
           <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>

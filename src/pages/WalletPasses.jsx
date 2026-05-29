@@ -2,18 +2,16 @@ import db from '@/api/base44Client';
 
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-
-import { useStore } from '@/lib/useStore';
 import { motion } from 'framer-motion';
-import { Wallet, Apple, Smartphone, Info } from 'lucide-react';
+import { Copy, ExternalLink, Info, MonitorSmartphone, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useStore } from '@/lib/useStore';
 
 export default function WalletPasses() {
   const { currentStore } = useStore();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState(null);
-  const [issuingCustomerId, setIssuingCustomerId] = useState(null);
 
   const { data: customers = [] } = useQuery({
     queryKey: ['store-customers', currentStore?.id],
@@ -22,47 +20,41 @@ export default function WalletPasses() {
       : db.entities.StoreCustomer.list('-created_at', 500),
   });
 
-  const issuePassMutation = useMutation({
-    mutationFn: async (customerId) => {
-      setMessage(null);
-      setIssuingCustomerId(customerId);
-      return db.integrations.PassKit.createMemberPass({
-        storeId: currentStore.id,
-        customerId,
+  const createWebCardMutation = useMutation({
+    mutationFn: async (customer) => {
+      const url = `${window.location.origin}/card/${customer.id}`;
+      await db.entities.StoreCustomer.update(customer.id, {
+        wallet_pass_url: url,
+        wallet_type: 'web',
       });
+      return url;
     },
-    onSuccess: async (result) => {
+    onSuccess: async (url) => {
       await queryClient.invalidateQueries({ queryKey: ['store-customers', currentStore?.id] });
-      setMessage({
-        type: 'success',
-        text: result?.passUrl
-          ? 'تم إصدار البطاقة بنجاح. استخدم زر فتح البطاقة.'
-          : 'تم إرسال الطلب إلى PassKit، لكن لم يرجع رابط بطاقة. راجع Logs في Supabase Edge Function.',
-      });
+      setMessage({ type: 'success', text: `تم إنشاء رابط البطاقة: ${url}` });
     },
     onError: (error) => {
-      setMessage({
-        type: 'error',
-        text: error?.message || 'تعذر إصدار البطاقة. راجع Logs في Supabase Edge Function.',
-      });
+      setMessage({ type: 'error', text: error?.message || 'تعذر إنشاء رابط البطاقة.' });
     },
-    onSettled: () => setIssuingCustomerId(null),
   });
 
-  const passkitReady = Boolean(currentStore?.passkit_enabled && currentStore?.passkit_program_id);
-  const appleCount = customers.filter(c => c.wallet_type === 'apple' || c.wallet_type === 'both').length;
-  const googleCount = customers.filter(c => c.wallet_type === 'google' || c.wallet_type === 'both').length;
-  const noneCount = customers.filter(c => c.wallet_type === 'none' || !c.wallet_type).length;
+  const copyLink = async (url) => {
+    await navigator.clipboard.writeText(url);
+    setMessage({ type: 'success', text: 'تم نسخ رابط البطاقة.' });
+  };
+
+  const webCount = customers.filter((c) => c.wallet_type === 'web' || c.wallet_pass_url?.includes('/card/')).length;
+  const withoutCard = customers.length - webCount;
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Wallet Passes</h2>
-        <p className="text-sm text-muted-foreground mt-1">إدارة بطاقات Apple Wallet و Google Wallet عبر PassKit</p>
+        <h2 className="text-2xl font-bold text-foreground">البطاقات الرقمية</h2>
+        <p className="mt-1 text-sm text-muted-foreground">بطاقات طوابع داخلية بدون PassKit أو تكاليف خارجية.</p>
       </div>
 
       {message && (
-        <div className={`rounded-xl border p-3 text-sm whitespace-pre-wrap ${
+        <div className={`rounded-xl border p-3 text-sm ${
           message.type === 'error'
             ? 'border-destructive/20 bg-destructive/10 text-destructive'
             : 'border-success/20 bg-success/10 text-success'
@@ -71,106 +63,76 @@ export default function WalletPasses() {
         </div>
       )}
 
-      {!currentStore && (
-        <div className="rounded-xl border border-warning/20 bg-warning/10 p-3 text-sm text-warning">
-          اختر متجرًا محددًا من قائمة المتاجر في الشريط الجانبي قبل إصدار بطاقات Wallet.
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+          <Info className="h-5 w-5 text-primary" />
         </div>
-      )}
-
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-primary/5 border border-primary/20 rounded-2xl p-5 flex items-start gap-4"
-      >
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-          <Info className="w-5 h-5 text-primary" />
-        </div>
-        <div className="flex-1">
-          <p className="font-semibold text-sm mb-1">تكامل PassKit</p>
-          <p className="text-sm text-muted-foreground mb-3">
-            {passkitReady
-              ? 'PassKit مفعل لهذا المتجر. يمكنك إصدار بطاقة Wallet لكل عميل من القائمة أدناه.'
-              : !currentStore
-                ? 'اختر متجرًا محددًا أولًا حتى نعرف إعدادات PassKit الخاصة به.'
-              : 'فعل PassKit من لوحة السوبر أدمن وأدخل Program ID لهذا المتجر قبل إصدار البطاقات.'}
+        <div>
+          <p className="mb-1 text-sm font-semibold">النظام الجديد</p>
+          <p className="text-sm text-muted-foreground">
+            هذه البطاقات تعمل كرابط ويب مباشر لكل عميل. الكاشير يضيف الطوابع من النظام، والعميل يشاهد تحديث البطاقة مباشرة بدون Apple Developer وبدون PassKit.
           </p>
-          <Badge className={passkitReady ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}>
-            {passkitReady ? 'متصل' : 'غير متصل'}
-          </Badge>
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {[
-          { label: 'Apple Wallet', count: appleCount, icon: Apple, color: 'text-foreground', bg: 'bg-muted' },
-          { label: 'Google Wallet', count: googleCount, icon: Smartphone, color: 'text-chart-2', bg: 'bg-chart-2/10' },
-          { label: 'بدون بطاقة', count: noneCount, icon: Wallet, color: 'text-muted-foreground', bg: 'bg-muted' },
-        ].map((s, i) => (
-          <motion.div key={s.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
-            className="bg-card border border-border rounded-2xl p-5">
-            <div className={`w-9 h-9 rounded-xl ${s.bg} flex items-center justify-center mb-3`}>
-              <s.icon className={`w-4.5 h-4.5 ${s.color}`} />
+          { label: 'بطاقات داخلية', count: webCount, icon: MonitorSmartphone },
+          { label: 'بدون بطاقة', count: withoutCard, icon: Wallet },
+        ].map((stat, index) => (
+          <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.06 }} className="rounded-2xl border border-border bg-card p-5">
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+              <stat.icon className="h-4 w-4 text-primary" />
             </div>
-            <p className="text-2xl font-bold">{s.count}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+            <p className="text-2xl font-bold">{stat.count}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{stat.label}</p>
           </motion.div>
         ))}
       </div>
 
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="border-b border-border px-5 py-4">
           <h3 className="font-semibold">العملاء وبطاقاتهم</h3>
         </div>
+
         {customers.length === 0 ? (
-          <div className="py-16 text-center text-muted-foreground text-sm">لا يوجد عملاء بعد</div>
+          <div className="py-16 text-center text-sm text-muted-foreground">لا يوجد عملاء بعد</div>
         ) : (
-          customers.slice(0, 20).map((c) => (
-            <div key={c.id} className="flex items-center justify-between px-5 py-3.5 border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">{c.full_name?.[0]}</div>
-                <div>
-                  <p className="text-sm font-medium">{c.full_name}</p>
-                  <p className="text-xs text-muted-foreground" dir="ltr">{c.phone}</p>
+          customers.slice(0, 100).map((customer) => {
+            const url = customer.wallet_pass_url?.includes('/card/')
+              ? customer.wallet_pass_url
+              : `${window.location.origin}/card/${customer.id}`;
+            const hasWebCard = customer.wallet_type === 'web' || customer.wallet_pass_url?.includes('/card/');
+
+            return (
+              <div key={customer.id} className="flex items-center justify-between gap-4 border-b border-border px-5 py-3.5 last:border-0 hover:bg-muted/20">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                    {customer.full_name?.[0]}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{customer.full_name}</p>
+                    <p className="text-xs text-muted-foreground" dir="ltr">{customer.phone}</p>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge className={hasWebCard ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}>
+                    {hasWebCard ? 'Web Card' : 'لا يوجد'}
+                  </Badge>
+                  <Button variant="secondary" size="sm" onClick={() => createWebCardMutation.mutate(customer)}>
+                    {hasWebCard ? 'تحديث الرابط' : 'إنشاء بطاقة'}
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => copyLink(url)} title="نسخ الرابط">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => window.open(url, '_blank')} title="فتح البطاقة">
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge className={
-                  c.wallet_type === 'apple' ? 'bg-muted text-foreground' :
-                  c.wallet_type === 'google' ? 'bg-chart-2/10 text-chart-2' :
-                  c.wallet_type === 'both' ? 'bg-primary/10 text-primary' :
-                  'bg-muted text-muted-foreground'
-                }>
-                  {c.wallet_type === 'apple' ? 'Apple' :
-                   c.wallet_type === 'google' ? 'Google' :
-                   c.wallet_type === 'both' ? 'Apple + Google' : 'لا يوجد'}
-                </Badge>
-                {c.wallet_pass_url && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={!passkitReady || issuingCustomerId === c.id}
-                    onClick={() => issuePassMutation.mutate(c.id)}
-                  >
-                    {issuingCustomerId === c.id ? 'Reissuing...' : 'Reissue'}
-                  </Button>
-                )}
-                {c.wallet_pass_url ? (
-                  <Button variant="ghost" size="sm" onClick={() => window.open(c.wallet_pass_url, '_blank')}>
-                    فتح البطاقة
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!passkitReady || issuingCustomerId === c.id}
-                    onClick={() => issuePassMutation.mutate(c.id)}
-                  >
-                    {issuingCustomerId === c.id ? 'جاري الإصدار...' : 'إصدار بطاقة'}
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
