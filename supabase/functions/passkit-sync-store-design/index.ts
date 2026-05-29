@@ -82,7 +82,7 @@ const tierIdForStamps = (
   if (mappedTierId) return mappedTierId;
   if (required !== 5) return baseTierId || null;
   if (current === 1) return baseTierId || 'base';
-  return current === 0 ? baseTierId || 'stamp_0' : `stamp_${current}`;
+  return `stamp_${current}`;
 };
 
 const createStampProfileImage = (store: Record<string, string | number | null>, customer: Record<string, string | number | null>) => {
