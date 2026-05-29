@@ -18,6 +18,7 @@ export default function Notifications() {
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ title: '', message: '', type: 'manual' });
+  const [sendResult, setSendResult] = useState(null);
 
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications', currentStore?.id],
@@ -27,15 +28,28 @@ export default function Notifications() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => db.entities.Notification.create({
-      ...data,
-      store_id: currentStore?.id || '',
-      status: 'sent',
+    mutationFn: (data) => db.integrations.PassKit.sendNotification({
+      storeId: currentStore.id,
+      title: data.title,
+      message: data.message,
+      target: 'wallet',
     }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries(['notifications', currentStore?.id]);
+      setSendResult({
+        type: result?.failed ? 'error' : 'success',
+        text: result?.failed
+          ? `تم إرسال الإشعار إلى ${result?.sentCount || 0} بطاقة، وفشل ${result.failed}. أعد إصدار بطاقات العملاء القديمة.`
+          : `تم إرسال الإشعار إلى ${result?.sentCount || 0} بطاقة Wallet.`,
+      });
       setShowAdd(false);
       setForm({ title: '', message: '', type: 'manual' });
+    },
+    onError: (error) => {
+      setSendResult({
+        type: 'error',
+        text: error?.message || 'تعذر إرسال الإشعار عبر PassKit.',
+      });
     },
   });
 
@@ -136,6 +150,16 @@ export default function Notifications() {
             </div>
           )}
         </motion.div>
+      )}
+
+      {sendResult && (
+        <div className={`rounded-xl border p-3 text-sm whitespace-pre-wrap ${
+          sendResult.type === 'error'
+            ? 'border-destructive/20 bg-destructive/10 text-destructive'
+            : 'border-success/20 bg-success/10 text-success'
+        }`}>
+          {sendResult.text}
+        </div>
       )}
 
       {/* Notifications List */}

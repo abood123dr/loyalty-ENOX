@@ -226,6 +226,21 @@ const integrations = {
       }
       return data;
     },
+    sendNotification: async ({ storeId, title, message, target = 'wallet' }) => {
+      const { data, error } = await supabase.functions.invoke('passkit-send-notification', {
+        body: { storeId, title, message, target },
+      });
+      if (error) {
+        if (error.context?.json) {
+          const details = await error.context.json().catch(() => null);
+          throw new Error(details?.error
+            ? `${details.error}${details.details ? `: ${JSON.stringify(details.details)}` : ''}`
+            : error.message);
+        }
+        throw error;
+      }
+      return data;
+    },
   },
 };
 
