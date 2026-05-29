@@ -89,8 +89,7 @@ serve(async (req) => {
     const token = await createPassKitJwt(restKey, restSecret);
     const results = [];
 
-    for (const customer of customers) {
-      const externalId = `${store.slug}-${customer.id}`;
+    const sendWalletUpdate = async (memberRef: Record<string, string>, customer: Record<string, string>) => {
       const response = await fetch(`${apiBase}/members/member`, {
         method: 'PUT',
         headers: {
@@ -99,7 +98,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           programId,
-          externalId,
+          ...memberRef,
           operation: 'OPERATION_PATCH',
           universal: {
             info: notificationText,
@@ -114,13 +113,38 @@ serve(async (req) => {
           },
         }),
       });
-      const body = await response.json().catch(() => ({}));
+      return {
+        ok: response.ok,
+        status: response.status,
+        body: await response.json().catch(() => ({})),
+      };
+    };
+
+    for (const customer of customers) {
+      const externalId = `${store.slug}-${customer.id}`;
+      let update = await sendWalletUpdate({ externalId }, customer);
+      let method = 'externalId';
+
+      if (!update.ok && customer.wallet_pass_id) {
+        const retry = await sendWalletUpdate({ id: customer.wallet_pass_id }, customer);
+        if (retry.ok) {
+          update = retry;
+          method = 'walletPassId';
+        } else {
+          update.body = {
+            externalIdAttempt: update.body,
+            walletPassIdAttempt: retry.body,
+          };
+        }
+      }
+
       results.push({
         customerId: customer.id,
         passId: customer.wallet_pass_id,
-        ok: response.ok,
-        status: response.status,
-        details: response.ok ? undefined : body,
+        ok: update.ok,
+        status: update.status,
+        method,
+        details: update.ok ? undefined : update.body,
       });
     }
 
