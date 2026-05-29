@@ -17,6 +17,7 @@ export default function QrScanner() {
   const [foundCustomer, setFoundCustomer] = useState(null);
   const [scanResult, setScanResult] = useState(null); // 'stamped' | 'reward'
   const [searching, setSearching] = useState(false);
+  const [syncError, setSyncError] = useState('');
 
   const stampsRequired = currentStore?.stamps_required || 10;
 
@@ -31,11 +32,13 @@ export default function QrScanner() {
     onSuccess: (customer) => {
       setFoundCustomer(customer);
       setScanResult(null);
+      setSyncError('');
     },
   });
 
   const stampMutation = useMutation({
     mutationFn: async ({ customer, isReward }) => {
+      setSyncError('');
       const newStamps = isReward ? 0 : (customer.current_stamps || 0) + 1;
       await db.entities.StampScan.create({
         store_id: currentStore?.id,
@@ -51,10 +54,14 @@ export default function QrScanner() {
       });
 
       if (customer.wallet_pass_id && currentStore?.passkit_enabled) {
-        await db.integrations.PassKit.syncCustomerPass({
-          storeId: currentStore.id,
-          customerId: customer.id,
-        });
+        try {
+          await db.integrations.PassKit.syncCustomerPass({
+            storeId: currentStore.id,
+            customerId: customer.id,
+          });
+        } catch (err) {
+          setSyncError(err.message || 'تعذر تحديث بطاقة PassKit.');
+        }
       }
 
       return { ...customer, current_stamps: newStamps };
@@ -193,6 +200,12 @@ export default function QrScanner() {
                 <div className="flex items-center gap-2 text-warning mb-4">
                   <Gift className="w-5 h-5" />
                   <p className="font-medium">🎉 تمت المكافأة! تم إعادة البطاقة</p>
+                </div>
+              )}
+
+              {syncError && (
+                <div className="mb-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive break-words" dir="ltr">
+                  {syncError}
                 </div>
               )}
 

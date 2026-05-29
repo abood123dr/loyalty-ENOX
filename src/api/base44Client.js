@@ -188,6 +188,9 @@ const integrations = {
         }
         throw error;
       }
+      if (data?.failed) {
+        throw new Error(`PassKit sync failed: ${JSON.stringify(data.results?.filter(result => !result.ok) || data)}`);
+      }
       return data;
     },
     syncCustomerPass: async ({ storeId, customerId }) => {
@@ -202,6 +205,9 @@ const integrations = {
             : error.message);
         }
         throw error;
+      }
+      if (data?.failed) {
+        throw new Error(`PassKit sync failed: ${JSON.stringify(data.results?.filter(result => !result.ok) || data)}`);
       }
       return data;
     },

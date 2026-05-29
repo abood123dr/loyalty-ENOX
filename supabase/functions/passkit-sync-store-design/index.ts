@@ -214,10 +214,12 @@ serve(async (req) => {
 
     for (const customer of customers) {
       const tierId = tierIdForStamps(baseTierId, store, customer);
+      const externalId = `${store.slug}-${customer.id}`;
       const payload = {
         id: customer.wallet_pass_id,
         programId,
         tierId,
+        externalId,
         forename: customer.full_name,
         surname: 'Customer',
         mobileNumber: customer.phone,
@@ -270,10 +272,41 @@ serve(async (req) => {
 
       const body = await response.json().catch(() => ({}));
 
+      let pointsResponseOk = true;
+      let pointsResponseStatus = response.status;
+      let pointsResponseBody = {};
+      if (response.ok) {
+        const pointsResponse = await fetch(`${apiBase}/members/member/points/set`, {
+          method: 'PUT',
+          headers: {
+            Authorization: token,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            externalId,
+            programId,
+            points: Number(customer.current_stamps) || 0,
+            tierId,
+            eventDetails: {
+              notes: `Set stamps ${customer.current_stamps || 0}/${store.stamps_required || 5}`,
+              metaData: {
+                storeId,
+                customerId: customer.id,
+                currentStamps: String(customer.current_stamps || 0),
+                stampsRequired: String(store.stamps_required || 5),
+              },
+            },
+          }),
+        });
+        pointsResponseOk = pointsResponse.ok;
+        pointsResponseStatus = pointsResponse.status;
+        pointsResponseBody = await pointsResponse.json().catch(() => ({}));
+      }
+
       let tierResponseOk = true;
-      let tierResponseStatus = response.status;
+      let tierResponseStatus = pointsResponseStatus;
       let tierResponseBody = {};
-      if (response.ok && tierId) {
+      if (response.ok && pointsResponseOk && tierId) {
         const tierResponse = await fetch(`${apiBase}/members/member/tier`, {
           method: 'PUT',
           headers: {
@@ -281,7 +314,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            memberId: customer.wallet_pass_id,
+            externalMemberId: externalId,
             programId,
             tierId,
             eventDetails: {
@@ -304,9 +337,14 @@ serve(async (req) => {
         customerId: customer.id,
         passId: customer.wallet_pass_id,
         tierId,
-        ok: response.ok && tierResponseOk,
-        status: response.ok ? tierResponseStatus : response.status,
-        details: response.ok && tierResponseOk ? undefined : { memberUpdate: body, tierUpdate: tierResponseBody },
+        points: Number(customer.current_stamps) || 0,
+        ok: response.ok && pointsResponseOk && tierResponseOk,
+        status: response.ok && pointsResponseOk ? tierResponseStatus : pointsResponseStatus,
+        details: response.ok && pointsResponseOk && tierResponseOk ? undefined : {
+          memberUpdate: body,
+          pointsUpdate: pointsResponseBody,
+          tierUpdate: tierResponseBody,
+        },
       });
     }
 
