@@ -35,17 +35,20 @@ export default function StampCards() {
   const previewStore = { ...store, ...editData };
 
   const updateMutation = useMutation({
-    mutationFn: (data) => db.entities.Store.update(store.id, {
-      card_bg_color: data.card_bg_color || '#4b2a25',
-      card_text_color: data.card_text_color || '#ffffff',
-      card_logo_url: data.card_logo_url || null,
-      stamp_strip_url: data.stamp_strip_url || null,
-      stamp_active_color: data.stamp_active_color || '#d9b85f',
-      stamp_inactive_color: data.stamp_inactive_color || '#ffffff33',
-      stamp_icon: data.stamp_icon || 'coffee',
-      stamps_required: Number(data.stamps_required) || 10,
-      reward_description: data.reward_description || '',
-    }),
+    mutationFn: async (data) => {
+      await db.entities.Store.update(store.id, {
+        card_bg_color: data.card_bg_color || '#4b2a25',
+        card_text_color: data.card_text_color || '#ffffff',
+        card_logo_url: data.card_logo_url || null,
+        stamp_strip_url: data.stamp_strip_url || null,
+        stamp_active_color: data.stamp_active_color || '#d9b85f',
+        stamp_inactive_color: data.stamp_inactive_color || '#ffffff33',
+        stamp_icon: data.stamp_icon || 'coffee',
+        stamps_required: Number(data.stamps_required) || 10,
+        reward_description: data.reward_description || '',
+      });
+      return db.integrations.GoogleWallet.syncPass({ storeId: store.id });
+    },
     onSuccess: () => {
       reloadStores();
       setShowEdit(false);

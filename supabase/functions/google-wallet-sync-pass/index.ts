@@ -50,16 +50,45 @@ const googleAccessToken = async (serviceAccount: Record<string, string>) => {
   return body.access_token as string;
 };
 
+const safeId = (value: string) => String(value || 'item').replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 80);
+
+const googleImage = (uri: string, label: string) => ({
+  sourceUri: { uri },
+  contentDescription: {
+    defaultValue: {
+      language: 'en-US',
+      value: label,
+    },
+  },
+});
+
+const walletRequest = async (path: string, token: string, options: RequestInit = {}) => {
+  const response = await fetch(`https://walletobjects.googleapis.com/walletobjects/v1/${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+  const body = await response.json().catch(() => ({}));
+  return { ok: response.ok, status: response.status, body };
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
     const { storeId, customerId } = await req.json();
-    if (!storeId || !customerId) {
-      return Response.json({ error: 'storeId and customerId are required' }, { status: 400, headers: corsHeaders });
+    if (!storeId) {
+      return Response.json({ error: 'storeId is required' }, { status: 400, headers: corsHeaders });
     }
 
     const issuerId = Deno.env.get('GOOGLE_WALLET_ISSUER_ID');
     const serviceAccountJson = Deno.env.get('GOOGLE_WALLET_SERVICE_ACCOUNT_JSON');
+    const origins = (Deno.env.get('GOOGLE_WALLET_ORIGINS') || 'https://loyalty-enox.vercel.app')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
     if (!issuerId || !serviceAccountJson) {
       return Response.json({ error: 'Google Wallet secrets are not configured' }, { status: 500, headers: corsHeaders });
     }
@@ -67,32 +96,55 @@ serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SERVICE_ROLE_KEY')!);
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id,stamps_required,reward_description')
+      .select('id,name,slug,stamps_required,reward_description,card_bg_color,card_text_color,logo_url,card_logo_url,stamp_strip_url')
       .eq('id', storeId)
       .single();
     if (storeError) throw storeError;
 
-    const { data: customer, error: customerError } = await supabase
+    let customerQuery = supabase
       .from('store_customers')
-      .select('id,current_stamps,google_wallet_object_id')
-      .eq('id', customerId)
+      .select('id,full_name,phone,current_stamps,google_wallet_object_id')
       .eq('store_id', storeId)
-      .single();
+      .not('google_wallet_object_id', 'is', null);
+    if (customerId) customerQuery = customerQuery.eq('id', customerId);
+
+    const { data: customers = [], error: customerError } = await customerQuery;
     if (customerError) throw customerError;
-    if (!customer.google_wallet_object_id || !String(customer.google_wallet_object_id).startsWith(`${issuerId}.`)) {
-      return Response.json({ skipped: true, reason: 'Customer has no Google Wallet object yet' }, { headers: corsHeaders });
+
+    const origin = origins[0]?.replace(/\/$/, '') || 'https://loyalty-enox.vercel.app';
+    const total = store.stamps_required || 10;
+    const classId = `${issuerId}.store_${safeId(store.slug || store.id)}`;
+    const logoUrl = store.card_logo_url || store.logo_url || `${origin}/wallet/stamp-tiers/preview.png`;
+    const classPayload: Record<string, unknown> = {
+      issuerName: store.name,
+      programName: `${store.name} Rewards`,
+      programLogo: googleImage(logoUrl, `${store.name} logo`),
+      hexBackgroundColor: store.card_bg_color || '#4b2a25',
+    };
+    if (store.stamp_strip_url) {
+      classPayload.heroImage = googleImage(store.stamp_strip_url, `${store.name} card image`);
     }
 
-    const total = store.stamps_required || 10;
-    const current = customer.current_stamps || 0;
     const token = await googleAccessToken(JSON.parse(serviceAccountJson));
-    const response = await fetch(`https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${encodeURIComponent(customer.google_wallet_object_id)}`, {
+
+    await walletRequest(`loyaltyClass/${encodeURIComponent(classId)}`, token, {
       method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+      body: JSON.stringify(classPayload),
+    });
+
+    let updated = 0;
+    let skipped = 0;
+    const failures: unknown[] = [];
+
+    for (const customer of customers) {
+      if (!customer.google_wallet_object_id || !String(customer.google_wallet_object_id).startsWith(`${issuerId}.`)) {
+        skipped += 1;
+        continue;
+      }
+
+      const current = customer.current_stamps || 0;
+      const cardUrl = `${origin}/card/${customer.id}`;
+      const objectPayload: Record<string, unknown> = {
         loyaltyPoints: {
           label: 'Stamps',
           balance: { int: current },
@@ -101,13 +153,29 @@ serve(async (req) => {
           { id: 'stamps', header: 'Stamps', body: `${current}/${total} stamps` },
           { id: 'reward', header: 'Reward', body: store.reward_description || `Collect ${total} stamps to unlock your reward.` },
         ],
-      }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return Response.json({ error: 'Google Wallet object update failed', details: body }, { status: 502, headers: corsHeaders });
+        linksModuleData: {
+          uris: [{ id: 'web_card', uri: cardUrl, description: 'Open digital card' }],
+        },
+      };
+      if (store.stamp_strip_url) {
+        objectPayload.heroImage = googleImage(store.stamp_strip_url, `${store.name} card image`);
+      }
+
+      const response = await walletRequest(`loyaltyObject/${encodeURIComponent(customer.google_wallet_object_id)}`, token, {
+        method: 'PATCH',
+        body: JSON.stringify(objectPayload),
+      });
+      if (response.ok) {
+        updated += 1;
+      } else {
+        failures.push({ customerId: customer.id, details: response.body });
+      }
     }
-    return Response.json({ updated: true, objectId: customer.google_wallet_object_id }, { headers: corsHeaders });
+
+    if (failures.length) {
+      return Response.json({ error: 'Some Google Wallet objects failed to update', updated, skipped, failures }, { status: 207, headers: corsHeaders });
+    }
+    return Response.json({ updated, skipped }, { headers: corsHeaders });
   } catch (error) {
     return Response.json({ error: error.message || 'Unexpected error' }, { status: 500, headers: corsHeaders });
   }

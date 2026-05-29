@@ -555,13 +555,13 @@ export default function SuperAdmin() {
         lock_card_design: Boolean(designDraft.lock_card_design),
       });
 
-      return { saved: true };
+      return db.integrations.GoogleWallet.syncPass({ storeId: designStoreId });
     },
     onSuccess: (result) => {
       reloadStores();
       setDesignSyncMessage({
         type: 'success',
-        text: 'تم حفظ إعدادات البطاقة. بطاقة الويب تتحدث مباشرة، وGoogle Wallet يتحدث عند إصدار البطاقة أو إضافة طابع جديد.',
+        text: `تم حفظ إعدادات البطاقة وتحديث Google Wallet لعدد ${result?.updated || 0} بطاقة. بطاقة الويب تتحدث مباشرة.`,
       });
     },
     onError: (err) => {

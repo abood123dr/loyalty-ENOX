@@ -120,7 +120,7 @@ serve(async (req) => {
 
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id,name,slug,description,stamps_required,reward_description,card_bg_color,card_text_color,logo_url,card_logo_url,cover_url')
+      .select('id,name,slug,description,stamps_required,reward_description,card_bg_color,card_text_color,logo_url,card_logo_url,cover_url,stamp_strip_url')
       .eq('id', storeId)
       .single();
     if (storeError) throw storeError;
@@ -142,7 +142,7 @@ serve(async (req) => {
       : generatedObjectId;
     const total = store.stamps_required || 10;
     const current = customer.current_stamps || 0;
-    const logoUrl = `${origin}/wallet/stamp-tiers/preview.png`;
+    const logoUrl = store.card_logo_url || store.logo_url || `${origin}/wallet/stamp-tiers/preview.png`;
 
     const loyaltyClass = {
       id: classId,
@@ -150,6 +150,8 @@ serve(async (req) => {
       programName: `${store.name} Rewards`,
       reviewStatus: 'UNDER_REVIEW',
       programLogo: googleImage(logoUrl, `${store.name} logo`),
+      hexBackgroundColor: store.card_bg_color || '#4b2a25',
+      ...(store.stamp_strip_url ? { heroImage: googleImage(store.stamp_strip_url, `${store.name} card image`) } : {}),
     };
 
     const loyaltyObject = {
@@ -188,6 +190,7 @@ serve(async (req) => {
           },
         ],
       },
+      ...(store.stamp_strip_url ? { heroImage: googleImage(store.stamp_strip_url, `${store.name} card image`) } : {}),
     };
 
     const accessToken = await googleAccessToken(serviceAccount);
