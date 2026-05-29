@@ -88,6 +88,18 @@ const googleImage = (uri: string, label: string) => ({
   },
 });
 
+const withVersion = (uri: string | null | undefined, version: string) => {
+  if (!uri) return uri;
+  const separator = uri.includes('?') ? '&' : '?';
+  return `${uri}${separator}v=${encodeURIComponent(version)}`;
+};
+
+const stampLine = (current: number, total: number) => {
+  const cappedTotal = Math.max(1, Math.min(total || 10, 20));
+  const filled = Math.max(0, Math.min(current || 0, cappedTotal));
+  return `${'● '.repeat(filled)}${'○ '.repeat(cappedTotal - filled)}`.trim();
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -120,7 +132,7 @@ serve(async (req) => {
 
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id,name,slug,description,stamps_required,reward_description,card_bg_color,card_text_color,logo_url,card_logo_url,cover_url,stamp_strip_url')
+      .select('id,name,slug,updated_at,description,stamps_required,reward_description,card_bg_color,card_text_color,logo_url,card_logo_url,cover_url,stamp_strip_url')
       .eq('id', storeId)
       .single();
     if (storeError) throw storeError;
@@ -135,14 +147,16 @@ serve(async (req) => {
 
     const origin = origins[0]?.replace(/\/$/, '') || 'https://loyalty-enox.vercel.app';
     const cardUrl = `${origin}/card/${customer.id}`;
-    const classId = `${issuerId}.store_${safeId(store.slug || store.id)}`;
+    const classId = `${issuerId}.store_${safeId(store.id)}`;
     const generatedObjectId = `${issuerId}.customer_${safeId(customer.id.replaceAll('-', ''))}`;
     const objectId = String(customer.google_wallet_object_id || '').startsWith(`${issuerId}.`)
       ? customer.google_wallet_object_id
       : generatedObjectId;
     const total = store.stamps_required || 10;
     const current = customer.current_stamps || 0;
-    const logoUrl = store.card_logo_url || store.logo_url || `${origin}/wallet/stamp-tiers/preview.png`;
+    const imageVersion = `${store.updated_at || Date.now()}-${Date.now()}`;
+    const logoUrl = withVersion(store.card_logo_url || store.logo_url || `${origin}/wallet/stamp-tiers/preview.png`, imageVersion);
+    const heroUrl = withVersion(store.stamp_strip_url, imageVersion);
 
     const loyaltyClass = {
       id: classId,
@@ -151,7 +165,7 @@ serve(async (req) => {
       reviewStatus: 'UNDER_REVIEW',
       programLogo: googleImage(logoUrl, `${store.name} logo`),
       hexBackgroundColor: store.card_bg_color || '#4b2a25',
-      ...(store.stamp_strip_url ? { heroImage: googleImage(store.stamp_strip_url, `${store.name} card image`) } : {}),
+      ...(heroUrl ? { heroImage: googleImage(heroUrl, `${store.name} stamp card`) } : {}),
     };
 
     const loyaltyObject = {
@@ -170,6 +184,11 @@ serve(async (req) => {
         balance: { int: current },
       },
       textModulesData: [
+        {
+          id: 'stamp_progress',
+          header: `${current}/${total} STAMPS`,
+          body: stampLine(current, total),
+        },
         {
           id: 'stamps',
           header: 'Stamps',
@@ -190,7 +209,15 @@ serve(async (req) => {
           },
         ],
       },
-      ...(store.stamp_strip_url ? { heroImage: googleImage(store.stamp_strip_url, `${store.name} card image`) } : {}),
+      ...(heroUrl ? {
+        heroImage: googleImage(heroUrl, `${store.name} stamp card`),
+        imageModulesData: [
+          {
+            mainImage: googleImage(heroUrl, `${store.name} stamps`),
+            id: 'stamp_design',
+          },
+        ],
+      } : {}),
     };
 
     const accessToken = await googleAccessToken(serviceAccount);
@@ -222,6 +249,7 @@ serve(async (req) => {
         return Response.json({ error: 'Google Wallet object creation failed', details: createdObject.body }, { status: 502, headers: corsHeaders });
       }
     } else if (existingObject.ok) {
+      loyaltyObject.classId = existingObject.body?.classId || classId;
       await walletRequest(`loyaltyObject/${encodeURIComponent(objectId)}`, accessToken, {
         method: 'PATCH',
         body: JSON.stringify(loyaltyObject),

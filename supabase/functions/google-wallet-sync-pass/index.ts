@@ -75,6 +75,18 @@ const walletRequest = async (path: string, token: string, options: RequestInit =
   return { ok: response.ok, status: response.status, body };
 };
 
+const withVersion = (uri: string | null | undefined, version: string) => {
+  if (!uri) return uri;
+  const separator = uri.includes('?') ? '&' : '?';
+  return `${uri}${separator}v=${encodeURIComponent(version)}`;
+};
+
+const stampLine = (current: number, total: number) => {
+  const cappedTotal = Math.max(1, Math.min(total || 10, 20));
+  const filled = Math.max(0, Math.min(current || 0, cappedTotal));
+  return `${'● '.repeat(filled)}${'○ '.repeat(cappedTotal - filled)}`.trim();
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
@@ -96,7 +108,7 @@ serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SERVICE_ROLE_KEY')!);
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id,name,slug,stamps_required,reward_description,card_bg_color,card_text_color,logo_url,card_logo_url,stamp_strip_url')
+      .select('id,name,slug,updated_at,stamps_required,reward_description,card_bg_color,card_text_color,logo_url,card_logo_url,stamp_strip_url')
       .eq('id', storeId)
       .single();
     if (storeError) throw storeError;
@@ -113,27 +125,22 @@ serve(async (req) => {
 
     const origin = origins[0]?.replace(/\/$/, '') || 'https://loyalty-enox.vercel.app';
     const total = store.stamps_required || 10;
-    const classId = `${issuerId}.store_${safeId(store.slug || store.id)}`;
-    const logoUrl = store.card_logo_url || store.logo_url || `${origin}/wallet/stamp-tiers/preview.png`;
-    const classPayload: Record<string, unknown> = {
+    const defaultClassId = `${issuerId}.store_${safeId(store.id)}`;
+    const imageVersion = `${store.updated_at || Date.now()}-${Date.now()}`;
+    const logoUrl = withVersion(store.card_logo_url || store.logo_url || `${origin}/wallet/stamp-tiers/preview.png`, imageVersion);
+    const heroUrl = withVersion(store.stamp_strip_url, imageVersion);
+    const classPayload = () => ({
       issuerName: store.name,
       programName: `${store.name} Rewards`,
       programLogo: googleImage(logoUrl, `${store.name} logo`),
       hexBackgroundColor: store.card_bg_color || '#4b2a25',
-    };
-    if (store.stamp_strip_url) {
-      classPayload.heroImage = googleImage(store.stamp_strip_url, `${store.name} card image`);
-    }
-
-    const token = await googleAccessToken(JSON.parse(serviceAccountJson));
-
-    await walletRequest(`loyaltyClass/${encodeURIComponent(classId)}`, token, {
-      method: 'PATCH',
-      body: JSON.stringify(classPayload),
+      ...(heroUrl ? { heroImage: googleImage(heroUrl, `${store.name} stamp card`) } : {}),
     });
 
+    const token = await googleAccessToken(JSON.parse(serviceAccountJson));
     let updated = 0;
     let skipped = 0;
+    const patchedClasses = new Set<string>();
     const failures: unknown[] = [];
 
     for (const customer of customers) {
@@ -144,12 +151,24 @@ serve(async (req) => {
 
       const current = customer.current_stamps || 0;
       const cardUrl = `${origin}/card/${customer.id}`;
+      const existingObject = await walletRequest(`loyaltyObject/${encodeURIComponent(customer.google_wallet_object_id)}`, token);
+      const classId = String(existingObject.body?.classId || defaultClassId);
+
+      if (!patchedClasses.has(classId)) {
+        await walletRequest(`loyaltyClass/${encodeURIComponent(classId)}`, token, {
+          method: 'PATCH',
+          body: JSON.stringify(classPayload()),
+        });
+        patchedClasses.add(classId);
+      }
+
       const objectPayload: Record<string, unknown> = {
         loyaltyPoints: {
           label: 'Stamps',
           balance: { int: current },
         },
         textModulesData: [
+          { id: 'stamp_progress', header: `${current}/${total} STAMPS`, body: stampLine(current, total) },
           { id: 'stamps', header: 'Stamps', body: `${current}/${total} stamps` },
           { id: 'reward', header: 'Reward', body: store.reward_description || `Collect ${total} stamps to unlock your reward.` },
         ],
@@ -157,8 +176,14 @@ serve(async (req) => {
           uris: [{ id: 'web_card', uri: cardUrl, description: 'Open digital card' }],
         },
       };
-      if (store.stamp_strip_url) {
-        objectPayload.heroImage = googleImage(store.stamp_strip_url, `${store.name} card image`);
+      if (heroUrl) {
+        objectPayload.heroImage = googleImage(heroUrl, `${store.name} stamp card`);
+        objectPayload.imageModulesData = [
+          {
+            mainImage: googleImage(heroUrl, `${store.name} stamps`),
+            id: 'stamp_design',
+          },
+        ];
       }
 
       const response = await walletRequest(`loyaltyObject/${encodeURIComponent(customer.google_wallet_object_id)}`, token, {
