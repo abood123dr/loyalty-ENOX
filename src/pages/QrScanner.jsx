@@ -1,4 +1,4 @@
-import db from '@/api/base44Client';
+﻿import db from '@/api/base44Client';
 
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -59,15 +59,14 @@ export default function QrScanner() {
         total_rewards_redeemed: isReward ? (customer.total_rewards_redeemed || 0) + 1 : customer.total_rewards_redeemed,
         last_stamp_date: new Date().toISOString(),
       });
-
-      if (customer.wallet_pass_id && currentStore?.passkit_enabled) {
+      if (customer.google_wallet_object_id) {
         try {
-          await db.integrations.PassKit.syncCustomerPass({
+          await db.integrations.GoogleWallet.syncPass({
             storeId: currentStore.id,
             customerId: customer.id,
           });
         } catch (err) {
-          setSyncError(err.message || 'تعذر تحديث بطاقة PassKit.');
+          setSyncError(err.message || 'تعذر تحديث Google Wallet.');
         }
       }
 
@@ -104,7 +103,7 @@ export default function QrScanner() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <QrCode className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-          <p className="text-muted-foreground">الرجاء اختيار متجر أولاً</p>
+          <p className="text-muted-foreground">ط§ظ„ط±ط¬ط§ط، ط§ط®طھظٹط§ط± ظ…طھط¬ط± ط£ظˆظ„ط§ظ‹</p>
         </div>
       </div>
     );
@@ -114,12 +113,12 @@ export default function QrScanner() {
     <div className="space-y-6 max-w-lg mx-auto">
       <div>
         <h2 className="text-2xl font-bold text-foreground">QR Scanner</h2>
-        <p className="text-sm text-muted-foreground mt-1">مسح بطاقة العميل وإضافة طابع</p>
+        <p className="text-sm text-muted-foreground mt-1">ظ…ط³ط­ ط¨ط·ط§ظ‚ط© ط§ظ„ط¹ظ…ظٹظ„ ظˆط¥ط¶ط§ظپط© ط·ط§ط¨ط¹</p>
       </div>
 
       {/* Search */}
       <div className="bg-card border border-border rounded-2xl p-6">
-        <p className="text-sm font-medium mb-3">ابحث عن العميل برقم الجوال</p>
+        <p className="text-sm font-medium mb-3">ط§ط¨ط­ط« ط¹ظ† ط§ظ„ط¹ظ…ظٹظ„ ط¨ط±ظ‚ظ… ط§ظ„ط¬ظˆط§ظ„</p>
         <div className="flex gap-2">
           <Input
             placeholder="05XXXXXXXX"
@@ -134,7 +133,7 @@ export default function QrScanner() {
           </Button>
         </div>
         {searchMutation.isSuccess && !foundCustomer && (
-          <p className="text-sm text-destructive mt-2">لم يتم إيجاد العميل بهذا الرقم</p>
+          <p className="text-sm text-destructive mt-2">ظ„ظ… ظٹطھظ… ط¥ظٹط¬ط§ط¯ ط§ظ„ط¹ظ…ظٹظ„ ط¨ظ‡ط°ط§ ط§ظ„ط±ظ‚ظ…</p>
         )}
       </div>
 
@@ -165,7 +164,7 @@ export default function QrScanner() {
             {/* Stamps Progress */}
             <div className="p-6 border-b border-border">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-medium">الطوابع الحالية</p>
+                <p className="text-sm font-medium">ط§ظ„ط·ظˆط§ط¨ط¹ ط§ظ„ط­ط§ظ„ظٹط©</p>
                 <p className="text-2xl font-black text-primary">
                   {foundCustomer.current_stamps || 0}
                   <span className="text-sm text-muted-foreground font-normal">/{stampsRequired}</span>
@@ -179,7 +178,7 @@ export default function QrScanner() {
                       ? 'bg-primary border-primary text-primary-foreground shadow-sm'
                       : 'border-border bg-muted text-muted-foreground'
                   )}>
-                    {i < (foundCustomer.current_stamps || 0) ? '✓' : i + 1}
+                    {i < (foundCustomer.current_stamps || 0) ? 'âœ“' : i + 1}
                   </div>
                 ))}
               </div>
@@ -188,8 +187,8 @@ export default function QrScanner() {
                   <Gift className="w-4 h-4 text-success" />
                   <p className="text-sm text-success font-medium">
                     {(foundCustomer.current_stamps || 0) >= stampsRequired
-                      ? 'البطاقة مكتملة! يستحق المكافأة'
-                      : 'طابع واحد متبقٍ للمكافأة!'}
+                      ? 'ط§ظ„ط¨ط·ط§ظ‚ط© ظ…ظƒطھظ…ظ„ط©! ظٹط³طھط­ظ‚ ط§ظ„ظ…ظƒط§ظپط£ط©'
+                      : 'ط·ط§ط¨ط¹ ظˆط§ط­ط¯ ظ…طھط¨ظ‚ظچ ظ„ظ„ظ…ظƒط§ظپط£ط©!'}
                   </p>
                 </div>
               )}
@@ -200,13 +199,13 @@ export default function QrScanner() {
               {scanResult === 'stamped' && (
                 <div className="flex items-center gap-2 text-success mb-4">
                   <CheckCircle className="w-5 h-5" />
-                  <p className="font-medium">تم إضافة الطابع بنجاح!</p>
+                  <p className="font-medium">طھظ… ط¥ط¶ط§ظپط© ط§ظ„ط·ط§ط¨ط¹ ط¨ظ†ط¬ط§ط­!</p>
                 </div>
               )}
               {scanResult === 'reward' && (
                 <div className="flex items-center gap-2 text-warning mb-4">
                   <Gift className="w-5 h-5" />
-                  <p className="font-medium">🎉 تمت المكافأة! تم إعادة البطاقة</p>
+                  <p className="font-medium">ًںژ‰ طھظ…طھ ط§ظ„ظ…ظƒط§ظپط£ط©! طھظ… ط¥ط¹ط§ط¯ط© ط§ظ„ط¨ط·ط§ظ‚ط©</p>
                 </div>
               )}
 
@@ -223,9 +222,9 @@ export default function QrScanner() {
                   disabled={stampMutation.isPending}
                 >
                   <Stamp className="w-4 h-4 ml-2" />
-                  {stampMutation.isPending ? 'جاري...' : 'إضافة طابع'}
+                  {stampMutation.isPending ? 'ط¬ط§ط±ظٹ...' : 'ط¥ط¶ط§ظپط© ط·ط§ط¨ط¹'}
                 </Button>
-                <Button variant="outline" onClick={handleReset}>بحث جديد</Button>
+                <Button variant="outline" onClick={handleReset}>ط¨ط­ط« ط¬ط¯ظٹط¯</Button>
               </div>
             </div>
           </motion.div>
@@ -234,5 +233,6 @@ export default function QrScanner() {
     </div>
   );
 }
+
 
 
