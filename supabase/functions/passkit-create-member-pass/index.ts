@@ -320,7 +320,7 @@ serve(async (req) => {
               filterGroups: [{
                 condition: 'AND',
                 fieldFilters: [{
-                  filterField: 'person.emailAddress',
+                  filterField: 'email',
                   filterValue: customerEmail(customer),
                   filterOperator: 'eq',
                 }],
