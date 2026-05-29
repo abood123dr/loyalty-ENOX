@@ -142,7 +142,7 @@ serve(async (req) => {
       : generatedObjectId;
     const total = store.stamps_required || 10;
     const current = customer.current_stamps || 0;
-    const logoUrl = `${origin}/passkit/stamp-tiers/preview.png`;
+    const logoUrl = `${origin}/wallet/stamp-tiers/preview.png`;
 
     const loyaltyClass = {
       id: classId,
@@ -200,6 +200,11 @@ serve(async (req) => {
       if (!createdClass.ok) {
         return Response.json({ error: 'Google Wallet class creation failed', details: createdClass.body }, { status: 502, headers: corsHeaders });
       }
+    } else if (existingClass.ok) {
+      await walletRequest(`loyaltyClass/${encodeURIComponent(classId)}`, accessToken, {
+        method: 'PATCH',
+        body: JSON.stringify(loyaltyClass),
+      });
     } else if (!existingClass.ok) {
       return Response.json({ error: 'Google Wallet class lookup failed', details: existingClass.body }, { status: 502, headers: corsHeaders });
     }

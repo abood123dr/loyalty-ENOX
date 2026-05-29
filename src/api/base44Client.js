@@ -17,7 +17,6 @@ const TABLE_NAMES = {
   LoyaltyCard: 'loyalty_cards',
   Reward: 'rewards',
   Transaction: 'transactions',
-  PassKitIntegration: 'passkit_integrations',
 };
 
 const resolveTableName = (entityName) => TABLE_NAMES[entityName] || entityName;
@@ -172,74 +171,6 @@ const integrations = {
       if (error) throw error;
       const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(data.path);
       return { file_url: publicUrl };
-    },
-  },
-  PassKit: {
-    syncStoreDesign: async ({ storeId }) => {
-      const { data, error } = await supabase.functions.invoke('passkit-sync-store-design', {
-        body: { storeId },
-      });
-      if (error) {
-        if (error.context?.json) {
-          const details = await error.context.json().catch(() => null);
-          throw new Error(details?.error
-            ? `${details.error}${details.details ? `: ${JSON.stringify(details.details)}` : ''}`
-            : error.message);
-        }
-        throw error;
-      }
-      if (data?.failed) {
-        throw new Error(`PassKit sync failed: ${JSON.stringify(data.results?.filter(result => !result.ok) || data)}`);
-      }
-      return data;
-    },
-    syncCustomerPass: async ({ storeId, customerId }) => {
-      const { data, error } = await supabase.functions.invoke('passkit-sync-store-design', {
-        body: { storeId, customerId },
-      });
-      if (error) {
-        if (error.context?.json) {
-          const details = await error.context.json().catch(() => null);
-          throw new Error(details?.error
-            ? `${details.error}${details.details ? `: ${JSON.stringify(details.details)}` : ''}`
-            : error.message);
-        }
-        throw error;
-      }
-      if (data?.failed) {
-        throw new Error(`PassKit sync failed: ${JSON.stringify(data.results?.filter(result => !result.ok) || data)}`);
-      }
-      return data;
-    },
-    createMemberPass: async ({ storeId, customerId }) => {
-      const { data, error } = await supabase.functions.invoke('passkit-create-member-pass', {
-        body: { storeId, customerId },
-      });
-      if (error) {
-        if (error.context?.json) {
-          const details = await error.context.json().catch(() => null);
-          throw new Error(details?.error
-            ? `${details.error}${details.details ? `: ${JSON.stringify(details.details)}` : ''}`
-            : error.message);
-        }
-        throw error;
-      }
-      return data;
-    },
-    sendNotification: async ({ storeId, title, message, target = 'wallet', customerId }) => {
-      const { data, error } = await supabase.functions.invoke('passkit-send-notification', {
-        body: { storeId, title, message, target, customerId },
-      });
-      if (error) {
-        if (error.context?.json) {
-          const details = await error.context.json().catch(() => null);
-          throw new Error(details?.error
-            ? `${details.error}${details.details ? `: ${JSON.stringify(details.details)}` : ''}`
-            : error.message);
-        }
-        throw error;
-      }
-      return data;
     },
   },
   GoogleWallet: {

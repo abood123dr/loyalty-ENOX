@@ -56,11 +56,6 @@ const emptyForm = {
   stamp_strip_url: '',
   lock_card_design: true,
   is_active: true,
-  passkit_enabled: false,
-  passkit_program_id: '',
-  passkit_tier_id: '',
-  passkit_stamp_tier_ids: {},
-  passkit_template_id: '',
 };
 
 const slugify = (value) => value
@@ -90,22 +85,7 @@ const storePayload = (data) => ({
   stamp_strip_url: data.stamp_strip_url || null,
   lock_card_design: Boolean(data.lock_card_design),
   is_active: Boolean(data.is_active),
-  passkit_enabled: Boolean(data.passkit_enabled),
-  passkit_program_id: data.passkit_program_id || null,
-  passkit_tier_id: data.passkit_tier_id || null,
-  passkit_stamp_tier_ids: data.passkit_stamp_tier_ids || {},
-  passkit_template_id: data.passkit_template_id || null,
 });
-
-const updateStampTierId = (form, setForm, index, value) => {
-  setForm({
-    ...form,
-    passkit_stamp_tier_ids: {
-      ...(form.passkit_stamp_tier_ids || {}),
-      [index]: value.trim(),
-    },
-  });
-};
 
 function StoreForm({ form, setForm, submitLabel, isPending, onSubmit }) {
   return (
@@ -226,40 +206,15 @@ function StoreForm({ form, setForm, submitLabel, isPending, onSubmit }) {
       </div>
 
       <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium">تفعيل PassKit لهذا المتجر</p>
-            <p className="text-xs text-muted-foreground">اربط برنامج الولاء في PassKit لإصدار Apple Wallet و Google Wallet.</p>
-          </div>
-          <Switch checked={Boolean(form.passkit_enabled)} onCheckedChange={v => setForm({ ...form, passkit_enabled: v })} />
+        <div>
+          <p className="text-sm font-medium">المحافظ الرقمية لهذا المتجر</p>
+          <p className="text-xs text-muted-foreground">التصميم يعمل الآن على بطاقة الويب و Google Wallet. Apple Wallet و Samsung Wallet سيتم إضافتهم لاحقاً.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <Label>Program ID</Label>
-            <Input className="mt-1" dir="ltr" value={form.passkit_program_id || ''} onChange={e => setForm({ ...form, passkit_program_id: e.target.value })} />
-          </div>
-          <div>
-            <Label>Tier ID</Label>
-            <Input className="mt-1" dir="ltr" value={form.passkit_tier_id || ''} onChange={e => setForm({ ...form, passkit_tier_id: e.target.value })} />
-          </div>
-          <div>
-            <Label>Template ID</Label>
-            <Input className="mt-1" dir="ltr" value={form.passkit_template_id || ''} onChange={e => setForm({ ...form, passkit_template_id: e.target.value })} />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index}>
-              <Label>{`Stamp ${index} Tier ID`}</Label>
-              <Input
-                className="mt-1"
-                dir="ltr"
-                value={form.passkit_stamp_tier_ids?.[index] || ''}
-                onChange={e => updateStampTierId(form, setForm, index, e.target.value)}
-                placeholder={index === 1 ? (form.passkit_tier_id || 'base') : `stamp_${index}`}
-              />
-            </div>
-          ))}
+        <div className="flex flex-wrap gap-2">
+          <Badge className="bg-success/10 text-success border-success/20" variant="outline">Web Card مفعل</Badge>
+          <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20" variant="outline">Google Wallet متاح</Badge>
+          <Badge className="bg-muted text-muted-foreground" variant="outline">Apple Wallet لاحقاً</Badge>
+          <Badge className="bg-muted text-muted-foreground" variant="outline">Samsung Wallet لاحقاً</Badge>
         </div>
       </div>
 
@@ -382,7 +337,7 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
 
           <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
             <div>
-              <Label>صورة الطوابع في PassKit</Label>
+              <Label>صورة الطوابع للبطاقة</Label>
               <Input className="mt-1" dir="ltr" value={draft.stamp_strip_url || ''} onChange={e => setDraft({ ...draft, stamp_strip_url: e.target.value })} placeholder="https://..." />
             </div>
             <div>
@@ -460,7 +415,7 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
 
           <Button className="w-full bg-primary hover:bg-primary/90" disabled={!selectedId || isPending} onClick={onSave}>
             <Save className="w-4 h-4 ml-2" />
-            {isPending ? 'جاري الحفظ والمزامنة...' : 'حفظ ومزامنة التصميم مع PassKit'}
+            {isPending ? 'جاري الحفظ...' : 'حفظ إعدادات البطاقة'}
           </Button>
         </div>
       </div>
@@ -555,7 +510,6 @@ export default function SuperAdmin() {
   const designMutation = useMutation({
     mutationFn: async () => {
       setDesignSyncMessage(null);
-      const selectedStore = allStores.find(store => store.id === designStoreId);
       await db.entities.Store.update(designStoreId, {
         name: designDraft.name,
         stamps_required: Number(designDraft.stamps_required) || 10,
@@ -570,23 +524,17 @@ export default function SuperAdmin() {
         lock_card_design: Boolean(designDraft.lock_card_design),
       });
 
-      if (!selectedStore?.passkit_enabled || !selectedStore?.passkit_program_id) {
-        return { updated: 0, skipped: true };
-      }
-
-      return db.integrations.PassKit.syncStoreDesign({ storeId: designStoreId });
+      return { saved: true };
     },
     onSuccess: (result) => {
       reloadStores();
       setDesignSyncMessage({
-        type: result?.failed ? 'error' : 'success',
-        text: result?.skipped
-          ? 'تم حفظ التصميم محليًا. فعل PassKit لهذا المتجر حتى تتم مزامنته مع البطاقة.'
-          : `تم حفظ التصميم ومزامنة ${result?.updated || 0} بطاقة في PassKit${result?.failed ? `، وفشل ${result.failed}` : ''}.`,
+        type: 'success',
+        text: 'تم حفظ إعدادات البطاقة. بطاقة الويب تتحدث مباشرة، وGoogle Wallet يتحدث عند إصدار البطاقة أو إضافة طابع جديد.',
       });
     },
     onError: (err) => {
-      setDesignSyncMessage({ type: 'error', text: err.message || 'تعذر حفظ أو مزامنة تصميم البطاقة مع PassKit.' });
+      setDesignSyncMessage({ type: 'error', text: err.message || 'تعذر حفظ إعدادات البطاقة.' });
     },
   });
 

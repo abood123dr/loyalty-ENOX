@@ -65,7 +65,7 @@ export default function WalletPasses() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground">البطاقات الرقمية</h2>
-        <p className="mt-1 text-sm text-muted-foreground">بطاقات طوابع داخلية بدون PassKit أو تكاليف خارجية.</p>
+        <p className="mt-1 text-sm text-muted-foreground">بطاقات طوابع داخلية مع دعم Google Wallet، وApple Wallet وSamsung Wallet لاحقاً.</p>
       </div>
 
       {message && (
@@ -85,7 +85,7 @@ export default function WalletPasses() {
         <div>
           <p className="mb-1 text-sm font-semibold">النظام الجديد</p>
           <p className="text-sm text-muted-foreground">
-            هذه البطاقات تعمل كرابط ويب مباشر لكل عميل. الكاشير يضيف الطوابع من النظام، والعميل يشاهد تحديث البطاقة مباشرة بدون Apple Developer وبدون PassKit.
+            هذه البطاقات تعمل كرابط ويب مباشر لكل عميل. الكاشير يضيف الطوابع من النظام، والعميل يشاهد تحديث البطاقة مباشرة. Google Wallet متاح الآن، وApple Wallet وSamsung Wallet سيتم إضافتهم في المرحلة التالية.
           </p>
         </div>
       </motion.div>

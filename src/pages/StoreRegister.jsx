@@ -69,11 +69,6 @@ export default function StoreRegister() {
       setNewCustomer({ ...customer, wallet_pass_url: url });
       setCardUrl(url);
       setStep('success');
-
-      if (store.passkit_enabled && store.passkit_program_id) {
-        db.integrations.PassKit.createMemberPass({ storeId: store.id, customerId: customer.id })
-          .catch((passError) => console.warn('PassKit issue failed; internal card is available.', passError));
-      }
     } catch (submitError) {
       if (submitError?.code === '23505') {
         setError('هذا الرقم مسجل مسبقا في هذا المتجر');

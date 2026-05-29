@@ -30,12 +30,13 @@
     },
     "wallet_pass_id": {
       "type": "string",
-      "description": "PassKit Pass ID"
+      "description": "External wallet object ID"
     },
     "wallet_type": {
       "type": "string",
       "enum": [
         "none",
+        "web",
         "apple",
         "google",
         "both"

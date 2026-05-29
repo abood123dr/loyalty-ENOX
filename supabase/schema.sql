@@ -36,12 +36,7 @@ create table if not exists public.stores (
   stamp_strip_url text,
   stamps_required integer default 10,
   reward_description text default 'مشروبك العاشر مجانا!',
-  lock_card_design boolean default true,
-  passkit_program_id text,
-  passkit_tier_id text,
-  passkit_stamp_tier_ids jsonb default '{}'::jsonb,
-  passkit_template_id text,
-  passkit_enabled boolean default false
+  lock_card_design boolean default true
 );
 
 create table if not exists public.store_customers (
@@ -58,6 +53,8 @@ create table if not exists public.store_customers (
   last_stamp_date timestamptz,
   wallet_pass_id text,
   wallet_pass_url text,
+  google_wallet_object_id text,
+  google_wallet_save_url text,
   wallet_type text default 'none',
   is_active boolean default true,
   notes text,
@@ -88,18 +85,6 @@ create table if not exists public.notifications (
   status text default 'draft'
 );
 
-create table if not exists public.passkit_integrations (
-  id uuid primary key default gen_random_uuid(),
-  created_at timestamptz not null default now(),
-  store_id uuid not null references public.stores(id) on delete cascade,
-  region text not null default 'eu',
-  program_id text not null,
-  tier_id text,
-  template_id text,
-  enabled boolean default true,
-  unique (store_id)
-);
-
 create index if not exists idx_store_customers_store_id on public.store_customers(store_id);
 create index if not exists idx_stamp_scans_store_id on public.stamp_scans(store_id);
 create index if not exists idx_notifications_store_id on public.notifications(store_id);
@@ -108,7 +93,6 @@ alter table public.stores enable row level security;
 alter table public.store_customers enable row level security;
 alter table public.stamp_scans enable row level security;
 alter table public.notifications enable row level security;
-alter table public.passkit_integrations enable row level security;
 
 -- Public customer registration needs to read active stores by slug and insert a customer.
 drop policy if exists "public can read active stores" on public.stores;
@@ -147,13 +131,6 @@ with check (true);
 drop policy if exists "authenticated can manage notifications" on public.notifications;
 create policy "authenticated can manage notifications"
 on public.notifications for all
-to authenticated
-using (true)
-with check (true);
-
-drop policy if exists "authenticated can manage passkit integrations" on public.passkit_integrations;
-create policy "authenticated can manage passkit integrations"
-on public.passkit_integrations for all
 to authenticated
 using (true)
 with check (true);

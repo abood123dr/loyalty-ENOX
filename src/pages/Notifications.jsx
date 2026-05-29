@@ -37,20 +37,20 @@ export default function Notifications() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => db.integrations.PassKit.sendNotification({
-      storeId: currentStore.id,
+    mutationFn: (data) => db.entities.Notification.create({
+      store_id: currentStore.id,
       title: data.title,
       message: data.message,
-      target: 'wallet',
-      customerId: data.targetMode === 'customer' ? data.customerId : undefined,
+      type: 'manual',
+      target_mode: data.targetMode,
+      customer_id: data.targetMode === 'customer' ? data.customerId : null,
+      status: 'sent',
     }),
-    onSuccess: (result) => {
+    onSuccess: () => {
       queryClient.invalidateQueries(['notifications', currentStore?.id]);
       setSendResult({
-        type: result?.failed ? 'error' : 'success',
-        text: result?.failed
-          ? `تم إرسال الإشعار إلى ${result?.sentCount || 0} بطاقة، وفشل ${result.failed}. أعد إصدار بطاقات العملاء القديمة.`
-          : `تم إرسال الإشعار إلى ${result?.sentCount || 0} بطاقة Wallet.`,
+        type: 'success',
+        text: 'تم حفظ الإشعار داخل النظام. إرسال إشعارات Apple Wallet وSamsung Wallet سيتم ربطه في المرحلة القادمة.',
       });
       setShowAdd(false);
       setForm({ title: '', message: '', type: 'manual' });
@@ -58,7 +58,7 @@ export default function Notifications() {
     onError: (error) => {
       setSendResult({
         type: 'error',
-        text: error?.message || 'تعذر إرسال الإشعار عبر PassKit.',
+        text: error?.message || 'تعذر حفظ الإشعار.',
       });
     },
   });
@@ -177,7 +177,7 @@ export default function Notifications() {
               </div>
               <div className="p-3 bg-muted/50 rounded-xl">
                 <p className="text-xs text-muted-foreground">
-                  📍 سيُرسَل الإشعار تلقائياً عبر Apple Wallet Pass عندما يقترب العميل من
+                  📍 سيتم ربط إشعارات الموقع مع Apple Wallet وSamsung Wallet في المرحلة القادمة عندما يقترب العميل من
                   <span className="font-medium text-foreground"> {currentStore.geofence_radius || 200}م </span>
                   من الموقع المحدد.
                 </p>

@@ -22,7 +22,7 @@ const storeMenuItems = [
   { icon: Megaphone, label: 'الحملات', path: '/campaigns' },
   { icon: MapPin, label: 'الفروع', path: '/branches' },
   { icon: UserCog, label: 'الموظفون', path: '/staff' },
-  { icon: Wallet, label: 'Wallet Passes', path: '/wallet-passes' },
+  { icon: Wallet, label: 'البطاقات الرقمية', path: '/wallet-passes' },
   { icon: QrCode, label: 'QR Scanner', path: '/qr-scanner' },
   { icon: QrCode, label: 'QR / NFC', path: '/qr-nfc' },
   { icon: Bell, label: 'الإشعارات', path: '/notifications' },
