@@ -69,6 +69,19 @@ const compactStampText = (store: Record<string, string | number | null>, custome
   return `${current}/${total} STAMPS`;
 };
 
+const tierIdForStamps = (
+  baseTierId: string | null | undefined,
+  store: Record<string, string | number | null>,
+  customer: Record<string, string | number | null>,
+) => {
+  const required = Math.max(1, Number(store.stamps_required) || 5);
+  const current = Math.max(0, Math.min(Number(customer.current_stamps) || 0, required));
+
+  if (required !== 5) return baseTierId || null;
+  if (current === 1) return baseTierId || 'base';
+  return `stamp_${current}`;
+};
+
 const createStampProfileImage = (store: Record<string, string | number | null>, customer: Record<string, string | number | null>) => {
   const current = Math.max(0, Number(customer.current_stamps) || 0);
   const total = Math.max(1, Math.min(Number(store.stamps_required) || 10, 12));
@@ -172,7 +185,7 @@ serve(async (req) => {
       .maybeSingle();
 
     const programId = integration?.program_id || store.passkit_program_id;
-    const tierId = integration?.tier_id || store.passkit_tier_id;
+    const baseTierId = integration?.tier_id || store.passkit_tier_id;
 
     if (!programId) {
       return Response.json({ error: 'PassKit program_id is not configured for this store' }, { status: 400, headers: corsHeaders });
@@ -200,7 +213,7 @@ serve(async (req) => {
       const payload = {
         id: customer.wallet_pass_id,
         programId,
-        tierId,
+        tierId: tierIdForStamps(baseTierId, store, customer),
         forename: customer.full_name,
         surname: 'Customer',
         mobileNumber: customer.phone,
