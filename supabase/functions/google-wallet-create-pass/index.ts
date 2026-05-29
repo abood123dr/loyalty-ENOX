@@ -40,6 +40,54 @@ const signJwt = async (claims: Record<string, unknown>, privateKeyPem: string) =
 
 const safeId = (value: string) => String(value || 'item').replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 80);
 
+const googleAccessToken = async (serviceAccount: Record<string, string>) => {
+  const now = Math.floor(Date.now() / 1000);
+  const assertion = await signJwt({
+    iss: serviceAccount.client_email,
+    scope: 'https://www.googleapis.com/auth/wallet_object.issuer',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+  }, serviceAccount.private_key);
+
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(`Google OAuth failed: ${JSON.stringify(body)}`);
+  }
+  return body.access_token as string;
+};
+
+const walletRequest = async (path: string, token: string, options: RequestInit = {}) => {
+  const response = await fetch(`https://walletobjects.googleapis.com/walletobjects/v1/${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+  const body = await response.json().catch(() => ({}));
+  return { ok: response.ok, status: response.status, body };
+};
+
+const googleImage = (uri: string, label: string) => ({
+  sourceUri: { uri },
+  contentDescription: {
+    defaultValue: {
+      language: 'en-US',
+      value: label,
+    },
+  },
+});
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -91,12 +139,14 @@ serve(async (req) => {
     const objectId = customer.google_wallet_object_id || `${issuerId}.customer_${safeId(customer.id.replaceAll('-', ''))}`;
     const total = store.stamps_required || 10;
     const current = customer.current_stamps || 0;
+    const fallbackImage = 'https://storage.googleapis.com/wallet-lab-tools-codelab-artifacts-public/pass_google_logo.jpg';
 
     const loyaltyClass = {
       id: classId,
       issuerName: store.name,
       programName: `${store.name} Rewards`,
       reviewStatus: 'UNDER_REVIEW',
+      programLogo: googleImage(fallbackImage, `${store.name} logo`),
     };
 
     const loyaltyObject = {
@@ -137,6 +187,38 @@ serve(async (req) => {
       },
     };
 
+    const accessToken = await googleAccessToken(serviceAccount);
+    const existingClass = await walletRequest(`loyaltyClass/${encodeURIComponent(classId)}`, accessToken);
+    if (existingClass.status === 404) {
+      const createdClass = await walletRequest('loyaltyClass', accessToken, {
+        method: 'POST',
+        body: JSON.stringify(loyaltyClass),
+      });
+      if (!createdClass.ok) {
+        return Response.json({ error: 'Google Wallet class creation failed', details: createdClass.body }, { status: 502, headers: corsHeaders });
+      }
+    } else if (!existingClass.ok) {
+      return Response.json({ error: 'Google Wallet class lookup failed', details: existingClass.body }, { status: 502, headers: corsHeaders });
+    }
+
+    const existingObject = await walletRequest(`loyaltyObject/${encodeURIComponent(objectId)}`, accessToken);
+    if (existingObject.status === 404) {
+      const createdObject = await walletRequest('loyaltyObject', accessToken, {
+        method: 'POST',
+        body: JSON.stringify(loyaltyObject),
+      });
+      if (!createdObject.ok) {
+        return Response.json({ error: 'Google Wallet object creation failed', details: createdObject.body }, { status: 502, headers: corsHeaders });
+      }
+    } else if (existingObject.ok) {
+      await walletRequest(`loyaltyObject/${encodeURIComponent(objectId)}`, accessToken, {
+        method: 'PATCH',
+        body: JSON.stringify(loyaltyObject),
+      });
+    } else {
+      return Response.json({ error: 'Google Wallet object lookup failed', details: existingObject.body }, { status: 502, headers: corsHeaders });
+    }
+
     const now = Math.floor(Date.now() / 1000);
     const jwt = await signJwt({
       iss: serviceAccount.client_email,
@@ -145,8 +227,7 @@ serve(async (req) => {
       iat: now,
       origins,
       payload: {
-        loyaltyClasses: [loyaltyClass],
-        loyaltyObjects: [loyaltyObject],
+        loyaltyObjects: [{ id: objectId }],
       },
     }, serviceAccount.private_key);
 
