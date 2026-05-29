@@ -40,12 +40,16 @@ const passUrlBaseFromApiBase = (apiBase: string) => {
 
 const readPassId = (body: Record<string, unknown>) => {
   const response = body.response as Record<string, unknown> | undefined;
+  const member = body.member as Record<string, unknown> | undefined;
   return body.id
     || body.memberId
     || body.passId
     || response?.id
     || response?.memberId
-    || response?.passId;
+    || response?.passId
+    || member?.id
+    || member?.memberId
+    || member?.passId;
 };
 
 const encodeSvgDataUrl = (svg: string) => {
@@ -276,9 +280,23 @@ serve(async (req) => {
       body: JSON.stringify(passkitPayload),
     });
 
-    const passkitBody = await passkitResponse.json().catch(() => ({}));
+    let passkitBody = await passkitResponse.json().catch(() => ({}));
     if (!passkitResponse.ok) {
-      return Response.json({ error: 'PassKit request failed', details: passkitBody }, { status: passkitResponse.status, headers: corsHeaders });
+      const passkitError = String(passkitBody?.error || '');
+      if (!passkitError.includes('external id already exists')) {
+        return Response.json({ error: 'PassKit request failed', details: passkitBody }, { status: passkitResponse.status, headers: corsHeaders });
+      }
+
+      const existingResponse = await fetch(`${apiBase}/members/member/externalId/${encodeURIComponent(programId)}/${encodeURIComponent(externalId)}`, {
+        headers: {
+          Authorization: token,
+          'Content-Type': 'application/json',
+        },
+      });
+      passkitBody = await existingResponse.json().catch(() => ({}));
+      if (!existingResponse.ok) {
+        return Response.json({ error: 'PassKit member exists but could not be loaded', details: passkitBody }, { status: existingResponse.status, headers: corsHeaders });
+      }
     }
 
     const passId = readPassId(passkitBody);
