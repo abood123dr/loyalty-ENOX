@@ -78,16 +78,6 @@ const walletRequest = async (path: string, token: string, options: RequestInit =
   return { ok: response.ok, status: response.status, body };
 };
 
-const googleImage = (uri: string, label: string) => ({
-  sourceUri: { uri },
-  contentDescription: {
-    defaultValue: {
-      language: 'en-US',
-      value: label,
-    },
-  },
-});
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -139,14 +129,12 @@ serve(async (req) => {
     const objectId = customer.google_wallet_object_id || `${issuerId}.customer_${safeId(customer.id.replaceAll('-', ''))}`;
     const total = store.stamps_required || 10;
     const current = customer.current_stamps || 0;
-    const fallbackImage = 'https://storage.googleapis.com/wallet-lab-tools-codelab-artifacts-public/pass_google_logo.jpg';
 
     const loyaltyClass = {
       id: classId,
       issuerName: store.name,
       programName: `${store.name} Rewards`,
       reviewStatus: 'UNDER_REVIEW',
-      programLogo: googleImage(fallbackImage, `${store.name} logo`),
     };
 
     const loyaltyObject = {
