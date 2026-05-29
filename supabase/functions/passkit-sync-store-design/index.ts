@@ -140,7 +140,7 @@ serve(async (req) => {
   }
 
   try {
-    const { storeId } = await req.json();
+    const { storeId, customerId } = await req.json();
     if (!storeId) {
       return Response.json({ error: 'storeId is required' }, { status: 400, headers: corsHeaders });
     }
@@ -178,12 +178,18 @@ serve(async (req) => {
       return Response.json({ error: 'PassKit program_id is not configured for this store' }, { status: 400, headers: corsHeaders });
     }
 
-    const { data: customers = [], error: customersError } = await supabase
+    let customersQuery = supabase
       .from('store_customers')
       .select('id,full_name,phone,email,current_stamps,wallet_pass_id')
       .eq('store_id', storeId)
       .not('wallet_pass_id', 'is', null)
       .limit(500);
+
+    if (customerId) {
+      customersQuery = customersQuery.eq('id', customerId);
+    }
+
+    const { data: customers = [], error: customersError } = await customersQuery;
     if (customersError) throw customersError;
 
     const token = await createPassKitJwt(restKey, restSecret);

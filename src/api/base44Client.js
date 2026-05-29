@@ -190,6 +190,21 @@ const integrations = {
       }
       return data;
     },
+    syncCustomerPass: async ({ storeId, customerId }) => {
+      const { data, error } = await supabase.functions.invoke('passkit-sync-store-design', {
+        body: { storeId, customerId },
+      });
+      if (error) {
+        if (error.context?.json) {
+          const details = await error.context.json().catch(() => null);
+          throw new Error(details?.error
+            ? `${details.error}${details.details ? `: ${JSON.stringify(details.details)}` : ''}`
+            : error.message);
+        }
+        throw error;
+      }
+      return data;
+    },
     createMemberPass: async ({ storeId, customerId }) => {
       const { data, error } = await supabase.functions.invoke('passkit-create-member-pass', {
         body: { storeId, customerId },

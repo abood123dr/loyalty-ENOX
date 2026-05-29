@@ -49,6 +49,14 @@ export default function QrScanner() {
         total_rewards_redeemed: isReward ? (customer.total_rewards_redeemed || 0) + 1 : customer.total_rewards_redeemed,
         last_stamp_date: new Date().toISOString(),
       });
+
+      if (customer.wallet_pass_id && currentStore?.passkit_enabled) {
+        await db.integrations.PassKit.syncCustomerPass({
+          storeId: currentStore.id,
+          customerId: customer.id,
+        });
+      }
+
       return { ...customer, current_stamps: newStamps };
     },
     onSuccess: (updatedCustomer, { isReward }) => {
