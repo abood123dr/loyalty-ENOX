@@ -88,20 +88,20 @@ export default function Notifications() {
               <DialogHeader><DialogTitle>إرسال إشعار جديد</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-2">
                 <div>
-                  <Label>???????</Label>
+                  <Label>المستلم</Label>
                   <Select value={form.targetMode} onValueChange={value => setForm({ ...form, targetMode: value, customerId: '' })}>
                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">?? ???????</SelectItem>
-                      <SelectItem value="customer">???? ????</SelectItem>
+                      <SelectItem value="all">كل العملاء</SelectItem>
+                      <SelectItem value="customer">عميل محدد</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 {form.targetMode === 'customer' && (
                   <div>
-                    <Label>???? ??????</Label>
+                    <Label>اختر العميل</Label>
                     <Select value={form.customerId} onValueChange={value => setForm({ ...form, customerId: value })}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="???? ????" /></SelectTrigger>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="اختر عميل" /></SelectTrigger>
                       <SelectContent>
                         {customers.map(customer => (
                           <SelectItem key={customer.id} value={customer.id}>
