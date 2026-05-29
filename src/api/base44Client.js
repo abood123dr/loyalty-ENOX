@@ -186,10 +186,13 @@ const integrations = {
         if (error.context?.json) {
           const details = await error.context.json().catch(() => null);
           throw new Error(details?.error
-            ? `${details.error}${details.details ? `: ${JSON.stringify(details.details)}` : ''}`
+            ? `${details.error}${details.details ? `: ${JSON.stringify(details.details)}` : ''}${details.classFailures ? `: ${JSON.stringify(details.classFailures)}` : ''}${details.failures ? `: ${JSON.stringify(details.failures)}` : ''}`
             : error.message);
         }
         throw error;
+      }
+      if (data?.error) {
+        throw new Error(`${data.error}${data.classFailures ? `: ${JSON.stringify(data.classFailures)}` : ''}${data.failures ? `: ${JSON.stringify(data.failures)}` : ''}`);
       }
       return data;
     },

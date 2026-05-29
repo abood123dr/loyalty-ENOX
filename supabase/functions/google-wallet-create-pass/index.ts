@@ -164,8 +164,17 @@ serve(async (req) => {
       programName: `${store.name} Rewards`,
       reviewStatus: 'UNDER_REVIEW',
       programLogo: googleImage(logoUrl, `${store.name} logo`),
+      wideProgramLogo: googleImage(logoUrl, `${store.name} logo`),
       hexBackgroundColor: store.card_bg_color || '#4b2a25',
-      ...(heroUrl ? { heroImage: googleImage(heroUrl, `${store.name} stamp card`) } : {}),
+      ...(heroUrl ? {
+        heroImage: googleImage(heroUrl, `${store.name} stamp card`),
+        imageModulesData: [
+          {
+            mainImage: googleImage(heroUrl, `${store.name} stamps`),
+            id: 'stamp_design_class',
+          },
+        ],
+      } : {}),
     };
 
     const loyaltyObject = {

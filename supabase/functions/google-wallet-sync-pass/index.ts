@@ -133,14 +133,24 @@ serve(async (req) => {
       issuerName: store.name,
       programName: `${store.name} Rewards`,
       programLogo: googleImage(logoUrl, `${store.name} logo`),
+      wideProgramLogo: googleImage(logoUrl, `${store.name} logo`),
       hexBackgroundColor: store.card_bg_color || '#4b2a25',
-      ...(heroUrl ? { heroImage: googleImage(heroUrl, `${store.name} stamp card`) } : {}),
+      ...(heroUrl ? {
+        heroImage: googleImage(heroUrl, `${store.name} stamp card`),
+        imageModulesData: [
+          {
+            mainImage: googleImage(heroUrl, `${store.name} stamps`),
+            id: 'stamp_design_class',
+          },
+        ],
+      } : {}),
     });
 
     const token = await googleAccessToken(JSON.parse(serviceAccountJson));
     let updated = 0;
     let skipped = 0;
     const patchedClasses = new Set<string>();
+    const classFailures: unknown[] = [];
     const failures: unknown[] = [];
 
     for (const customer of customers) {
@@ -155,10 +165,13 @@ serve(async (req) => {
       const classId = String(existingObject.body?.classId || defaultClassId);
 
       if (!patchedClasses.has(classId)) {
-        await walletRequest(`loyaltyClass/${encodeURIComponent(classId)}`, token, {
+        const classResponse = await walletRequest(`loyaltyClass/${encodeURIComponent(classId)}`, token, {
           method: 'PATCH',
           body: JSON.stringify(classPayload()),
         });
+        if (!classResponse.ok) {
+          classFailures.push({ classId, details: classResponse.body });
+        }
         patchedClasses.add(classId);
       }
 
@@ -197,10 +210,10 @@ serve(async (req) => {
       }
     }
 
-    if (failures.length) {
-      return Response.json({ error: 'Some Google Wallet objects failed to update', updated, skipped, failures }, { status: 207, headers: corsHeaders });
+    if (classFailures.length || failures.length) {
+      return Response.json({ error: 'Some Google Wallet updates failed', updated, skipped, classFailures, failures }, { status: 207, headers: corsHeaders });
     }
-    return Response.json({ updated, skipped }, { headers: corsHeaders });
+    return Response.json({ updated, skipped, classesUpdated: patchedClasses.size }, { headers: corsHeaders });
   } catch (error) {
     return Response.json({ error: error.message || 'Unexpected error' }, { status: 500, headers: corsHeaders });
   }
