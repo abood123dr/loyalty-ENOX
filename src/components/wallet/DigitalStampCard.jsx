@@ -5,7 +5,7 @@ const stampSymbols = {
   check: '✓',
   star: '★',
   heart: '♥',
-  coffee: '☕',
+  coffee: '●',
   gift: '◆',
   none: '',
 };

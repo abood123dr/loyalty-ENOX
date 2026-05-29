@@ -1,9 +1,10 @@
 import db, { supabase } from '@/api/base44Client';
 
 import React, { useEffect, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, CheckCircle, Phone, Smartphone, User } from 'lucide-react';
+import { AlertCircle, CheckCircle, Phone, Smartphone, User, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +21,19 @@ export default function StoreRegister() {
   const [newCustomer, setNewCustomer] = useState(null);
   const [cardUrl, setCardUrl] = useState('');
   const [error, setError] = useState('');
+  const [walletError, setWalletError] = useState('');
+
+  const googleWalletMutation = useMutation({
+    mutationFn: () => db.integrations.GoogleWallet.createPass({
+      storeId: store.id,
+      customerId: newCustomer.id,
+    }),
+    onSuccess: (result) => {
+      setWalletError('');
+      window.open(result.saveUrl, '_blank');
+    },
+    onError: (err) => setWalletError(err.message || 'تعذر تجهيز Google Wallet'),
+  });
 
   useEffect(() => {
     const loadStore = async () => {
@@ -177,6 +191,20 @@ export default function StoreRegister() {
                 <Smartphone className="h-4 w-4" />
                 فتح البطاقة
               </Button>
+              <Button
+                className="w-full gap-2"
+                variant="outline"
+                disabled={!newCustomer || googleWalletMutation.isPending}
+                onClick={() => googleWalletMutation.mutate()}
+              >
+                <Wallet className="h-4 w-4" />
+                {googleWalletMutation.isPending ? 'جاري تجهيز Google Wallet...' : 'إضافة إلى Google Wallet'}
+              </Button>
+              {walletError && (
+                <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
+                  {walletError}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">اعرض هذه البطاقة للموظف عند كل زيارة لإضافة طابع.</p>
             </motion.div>
           )}
