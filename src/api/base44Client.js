@@ -114,6 +114,8 @@ const auth = {
 };
 
 // ===== ENTITIES (قاعدة البيانات) =====
+const firstRow = (data) => Array.isArray(data) ? data[0] : data;
+
 const createEntity = (entityName) => {
   const tableName = resolveTableName(entityName);
 
@@ -129,19 +131,21 @@ const createEntity = (entityName) => {
     return data || [];
   },
   get: async (id) => {
-    const { data, error } = await supabase.from(tableName).select('*').eq('id', id).single();
+    const { data, error } = await supabase.from(tableName).select('*').eq('id', id).limit(1);
     if (error) throw error;
-    return data;
+    const row = firstRow(data);
+    if (!row) throw new Error(`${entityName} not found`);
+    return row;
   },
   create: async (record) => {
-    const { data, error } = await supabase.from(tableName).insert(record).select().single();
+    const { data, error } = await supabase.from(tableName).insert(record).select();
     if (error) throw error;
-    return data;
+    return firstRow(data) || record;
   },
   update: async (id, record) => {
-    const { data, error } = await supabase.from(tableName).update(record).eq('id', id).select().single();
+    const { data, error } = await supabase.from(tableName).update(record).eq('id', id).select();
     if (error) throw error;
-    return data;
+    return firstRow(data) || { id, ...record };
   },
   delete: async (id) => {
     const { error } = await supabase.from(tableName).delete().eq('id', id);
