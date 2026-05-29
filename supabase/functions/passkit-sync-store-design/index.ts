@@ -102,7 +102,7 @@ const createStampProfileImage = (store: Record<string, string | number | null>, 
 };
 
 const customerEmail = (customer: Record<string, string | number | null>) =>
-  customer.email || `customer-${customer.id}@loyalty-enox.local`;
+  customer.email || `customer-${String(customer.id).replace(/[^a-zA-Z0-9]/g, '')}@loyalty-enox.example.com`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
