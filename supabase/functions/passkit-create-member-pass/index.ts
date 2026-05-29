@@ -119,6 +119,36 @@ const createStampProfileImage = (store: Record<string, string | number | null>, 
 const customerEmail = (customer: Record<string, string | number | null>) =>
   customer.email || `customer-${String(customer.id).replace(/[^a-zA-Z0-9]/g, '')}@loyalty-enox.example.com`;
 
+const uploadPassKitStripImage = async (apiBase: string, token: string, imageUrl?: string | null) => {
+  if (!imageUrl) return null;
+
+  const response = await fetch(`${apiBase}/images`, {
+    method: 'POST',
+    headers: {
+      Authorization: token,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: `stamp-strip-${Date.now()}`,
+      imageData: {
+        strip: imageUrl,
+        thumbnail: imageUrl,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    console.warn('PassKit image upload failed', await response.text());
+    return null;
+  }
+
+  const body = await response.json().catch(() => ({}));
+  return {
+    strip: body.strip,
+    thumbnail: body.thumbnail,
+  };
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -173,6 +203,7 @@ serve(async (req) => {
     }
 
     const token = await createPassKitJwt(restKey, restSecret);
+    const imageIds = await uploadPassKitStripImage(apiBase, token, store.stamp_strip_url);
 
     const externalId = `${store.slug}-${customer.id}`;
     const passkitPayload = {
@@ -210,6 +241,7 @@ serve(async (req) => {
         dynamicUrl: `${req.headers.get('origin') || ''}/store/${store.slug}`,
       },
       passOverrides: {
+        ...(imageIds ? { imageIds } : {}),
         colors: {
           backgroundColor: store.card_bg_color || '#7C3AED',
           labelColor: store.card_text_color || '#FFFFFF',
