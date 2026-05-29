@@ -75,6 +75,11 @@ serve(async (req) => {
     if (!issuerId || !serviceAccountJson) {
       return Response.json({ error: 'Google Wallet secrets are not configured' }, { status: 500, headers: corsHeaders });
     }
+    if (!/^\d+$/.test(issuerId)) {
+      return Response.json({
+        error: 'GOOGLE_WALLET_ISSUER_ID must be the numeric Issuer ID from Google Wallet Console, not the alphanumeric merchant/account id.',
+      }, { status: 500, headers: corsHeaders });
+    }
 
     const serviceAccount = JSON.parse(serviceAccountJson);
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SERVICE_ROLE_KEY')!);
