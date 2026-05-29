@@ -101,6 +101,9 @@ const createStampProfileImage = (store: Record<string, string | number | null>, 
   return encodeSvgDataUrl(svg);
 };
 
+const customerEmail = (customer: Record<string, string | number | null>) =>
+  customer.email || `customer-${customer.id}@loyalty-enox.local`;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -164,11 +167,11 @@ serve(async (req) => {
         forename: customer.full_name,
         surname: '',
         mobileNumber: customer.phone,
-        emailAddress: customer.email,
+        emailAddress: customerEmail(customer),
         person: {
           displayName: `${customer.full_name}  ${compactStampText(store, customer)}`,
           forename: customer.full_name,
-          emailAddress: customer.email,
+          emailAddress: customerEmail(customer),
           mobileNumber: customer.phone,
         },
         points: customer.current_stamps || 0,
