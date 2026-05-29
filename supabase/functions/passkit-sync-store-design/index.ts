@@ -215,8 +215,8 @@ serve(async (req) => {
     for (const customer of customers) {
       const tierId = tierIdForStamps(baseTierId, store, customer);
       const externalId = `${store.slug}-${customer.id}`;
+      const points = Number(customer.current_stamps) || 0;
       const payload = {
-        id: customer.wallet_pass_id,
         programId,
         tierId,
         externalId,
@@ -272,36 +272,34 @@ serve(async (req) => {
 
       const body = await response.json().catch(() => ({}));
 
-      let pointsResponseOk = true;
-      let pointsResponseStatus = response.status;
+      let pointsResponseOk = false;
+      let pointsResponseStatus = 0;
       let pointsResponseBody = {};
-      if (response.ok) {
-        const pointsResponse = await fetch(`${apiBase}/members/member/points/set`, {
-          method: 'PUT',
-          headers: {
-            Authorization: token,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            externalId,
-            programId,
-            points: Number(customer.current_stamps) || 0,
-            tierId,
-            eventDetails: {
-              notes: `Set stamps ${customer.current_stamps || 0}/${store.stamps_required || 5}`,
-              metaData: {
-                storeId,
-                customerId: customer.id,
-                currentStamps: String(customer.current_stamps || 0),
-                stampsRequired: String(store.stamps_required || 5),
-              },
+      const pointsResponse = await fetch(`${apiBase}/members/member/points/set`, {
+        method: 'PUT',
+        headers: {
+          Authorization: token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          externalId,
+          programId,
+          ...(points === 0 ? { resetPoints: true } : { points }),
+          tierId,
+          eventDetails: {
+            notes: `Set stamps ${points}/${store.stamps_required || 5}`,
+            metaData: {
+              storeId,
+              customerId: customer.id,
+              currentStamps: String(points),
+              stampsRequired: String(store.stamps_required || 5),
             },
-          }),
-        });
-        pointsResponseOk = pointsResponse.ok;
-        pointsResponseStatus = pointsResponse.status;
-        pointsResponseBody = await pointsResponse.json().catch(() => ({}));
-      }
+          },
+        }),
+      });
+      pointsResponseOk = pointsResponse.ok;
+      pointsResponseStatus = pointsResponse.status;
+      pointsResponseBody = await pointsResponse.json().catch(() => ({}));
 
       let tierResponseOk = true;
       let tierResponseStatus = pointsResponseStatus;
@@ -328,19 +326,19 @@ serve(async (req) => {
             },
           }),
         });
-        tierResponseOk = tierResponse.ok;
         tierResponseStatus = tierResponse.status;
         tierResponseBody = await tierResponse.json().catch(() => ({}));
+        tierResponseOk = tierResponse.ok || String(tierResponseBody?.error || '').includes('already in tier');
       }
 
       results.push({
         customerId: customer.id,
         passId: customer.wallet_pass_id,
         tierId,
-        points: Number(customer.current_stamps) || 0,
-        ok: response.ok && pointsResponseOk && tierResponseOk,
-        status: response.ok && pointsResponseOk ? tierResponseStatus : pointsResponseStatus,
-        details: response.ok && pointsResponseOk && tierResponseOk ? undefined : {
+        points,
+        ok: pointsResponseOk && tierResponseOk,
+        status: pointsResponseOk ? tierResponseStatus : pointsResponseStatus,
+        details: pointsResponseOk && tierResponseOk ? undefined : {
           memberUpdate: body,
           pointsUpdate: pointsResponseBody,
           tierUpdate: tierResponseBody,
