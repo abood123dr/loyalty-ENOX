@@ -37,7 +37,7 @@ serve(async (req) => {
   }
 
   try {
-    const { storeId, title, message, target = 'wallet' } = await req.json();
+    const { storeId, title, message, target = 'wallet', customerId } = await req.json();
     if (!storeId || !title || !message) {
       return Response.json({ error: 'storeId, title and message are required' }, { status: 400, headers: corsHeaders });
     }
@@ -71,12 +71,18 @@ serve(async (req) => {
       .maybeSingle();
 
     const programId = integration?.program_id || store.passkit_program_id;
-    const { data: customers = [], error: customersError } = await supabase
+    let customersQuery = supabase
       .from('store_customers')
       .select('id,full_name,wallet_pass_id')
       .eq('store_id', storeId)
       .not('wallet_pass_id', 'is', null)
       .limit(500);
+
+    if (customerId) {
+      customersQuery = customersQuery.eq('id', customerId);
+    }
+
+    const { data: customers = [], error: customersError } = await customersQuery;
     if (customersError) throw customersError;
 
     const notificationText = `${title}\n${message}`;
@@ -125,8 +131,8 @@ serve(async (req) => {
         store_id: storeId,
         title,
         message,
-        type: target,
-        target,
+        type: customerId ? 'personal' : target,
+        target: customerId ? customerId : target,
         sent_count: sentCount,
         status: failed.length ? 'partial' : 'sent',
       })

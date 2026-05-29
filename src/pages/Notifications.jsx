@@ -12,12 +12,13 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function Notifications() {
   const { currentStore, reloadStores } = useStore();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ title: '', message: '', type: 'manual' });
+  const [form, setForm] = useState({ title: '', message: '', type: 'manual', targetMode: 'all', customerId: '' });
   const [sendResult, setSendResult] = useState(null);
 
   const { data: notifications = [] } = useQuery({
@@ -27,12 +28,21 @@ export default function Notifications() {
       : db.entities.Notification.list('-created_date', 50),
   });
 
+  const { data: customers = [] } = useQuery({
+    queryKey: ['notification-customers', currentStore?.id],
+    queryFn: () => currentStore
+      ? db.entities.StoreCustomer.filter({ store_id: currentStore.id }, '-created_at', 500)
+      : [],
+    enabled: Boolean(currentStore?.id),
+  });
+
   const createMutation = useMutation({
     mutationFn: (data) => db.integrations.PassKit.sendNotification({
       storeId: currentStore.id,
       title: data.title,
       message: data.message,
       target: 'wallet',
+      customerId: data.targetMode === 'customer' ? data.customerId : undefined,
     }),
     onSuccess: (result) => {
       queryClient.invalidateQueries(['notifications', currentStore?.id]);
@@ -77,11 +87,36 @@ export default function Notifications() {
             <DialogContent className="max-w-sm">
               <DialogHeader><DialogTitle>إرسال إشعار جديد</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-2">
+                <div>
+                  <Label>???????</Label>
+                  <Select value={form.targetMode} onValueChange={value => setForm({ ...form, targetMode: value, customerId: '' })}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">?? ???????</SelectItem>
+                      <SelectItem value="customer">???? ????</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.targetMode === 'customer' && (
+                  <div>
+                    <Label>???? ??????</Label>
+                    <Select value={form.customerId} onValueChange={value => setForm({ ...form, customerId: value })}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="???? ????" /></SelectTrigger>
+                      <SelectContent>
+                        {customers.map(customer => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.full_name} - {customer.phone}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div><Label>العنوان</Label><Input className="mt-1" placeholder="عنوان الإشعار" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
                 <div><Label>الرسالة</Label><Input className="mt-1" placeholder="نص الإشعار..." value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} /></div>
                 <Button className="w-full bg-primary hover:bg-primary/90"
                   onClick={() => createMutation.mutate(form)}
-                  disabled={!form.title || !form.message || createMutation.isPending}>
+                  disabled={!form.title || !form.message || (form.targetMode === 'customer' && !form.customerId) || createMutation.isPending}>
                   <Send className="w-4 h-4 ml-2" />
                   {createMutation.isPending ? 'جاري الإرسال...' : 'إرسال الإشعار'}
                 </Button>
