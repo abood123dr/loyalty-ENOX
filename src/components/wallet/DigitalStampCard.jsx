@@ -1,5 +1,5 @@
 import React from 'react';
-import { QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 const stampSymbols = {
   check: '✓',
@@ -19,6 +19,7 @@ export default function DigitalStampCard({ store, customer, value }) {
   const inactiveColor = store?.stamp_inactive_color || 'rgba(255,255,255,0.25)';
   const symbol = stampSymbols[store?.stamp_icon || 'coffee'];
   const cardValue = value || customer?.id || '';
+  const qrValue = String(cardValue || '');
 
   return (
     <div
@@ -78,7 +79,7 @@ export default function DigitalStampCard({ store, customer, value }) {
           <div className="mt-4 text-xs opacity-75">{store?.reward_description || 'Collect stamps and unlock your reward.'}</div>
         </div>
         <div className="rounded-xl bg-white p-3 text-black shadow-lg">
-          <QrCode className="h-24 w-24" />
+          <QRCodeSVG value={qrValue} size={96} level="M" includeMargin={false} />
           <div className="mt-1 max-w-24 truncate text-center text-xs font-bold" dir="ltr">{String(cardValue).slice(0, 10)}</div>
         </div>
       </div>

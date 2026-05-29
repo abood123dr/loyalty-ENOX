@@ -22,10 +22,17 @@ export default function QrScanner() {
   const stampsRequired = currentStore?.stamps_required || 10;
 
   const searchMutation = useMutation({
-    mutationFn: async (phone) => {
+    mutationFn: async (input) => {
+      const value = input.trim();
+      const cardMatch = value.match(/\/card\/([0-9a-fA-F-]{36})/) || value.match(/^([0-9a-fA-F-]{36})$/);
+      if (cardMatch?.[1]) {
+        const customer = await db.entities.StoreCustomer.get(cardMatch[1]);
+        return customer?.store_id === currentStore?.id ? customer : null;
+      }
+
       const results = await db.entities.StoreCustomer.filter({
         store_id: currentStore?.id,
-        phone: phone.trim(),
+        phone: value,
       });
       return results[0] || null;
     },

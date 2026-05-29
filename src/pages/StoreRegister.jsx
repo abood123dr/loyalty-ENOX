@@ -129,7 +129,7 @@ export default function StoreRegister() {
           {store.description && <p className="mt-1 text-sm text-muted-foreground">{store.description}</p>}
         </div>
 
-        <DigitalStampCard store={store} customer={{ full_name: 'عميل جديد', current_stamps: 0 }} value="preview" />
+        <DigitalStampCard store={store} customer={{ full_name: 'عميل جديد', current_stamps: 0 }} value={`${window.location.origin}/store/${slug}`} />
 
         <AnimatePresence mode="wait">
           {step === 'form' && (
@@ -176,7 +176,7 @@ export default function StoreRegister() {
                 مرحبا <span className="font-semibold text-foreground">{newCustomer?.full_name}</span>، بطاقتك الرقمية جاهزة.
               </p>
 
-              <DigitalStampCard store={store} customer={newCustomer} value={newCustomer?.id} />
+              <DigitalStampCard store={store} customer={newCustomer} value={cardUrl} />
 
               <Button className="w-full gap-2 text-white" style={{ background: bgColor, color: textColor }} disabled={!cardUrl} onClick={() => window.open(cardUrl, '_blank')}>
                 <Smartphone className="h-4 w-4" />

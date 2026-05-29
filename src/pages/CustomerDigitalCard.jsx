@@ -55,7 +55,7 @@ export default function CustomerDigitalCard() {
           </Button>
         </div>
 
-        <DigitalStampCard store={store} customer={customer} value={customer.id} />
+        <DigitalStampCard store={store} customer={customer} value={`${window.location.origin}/card/${customer.id}`} />
 
         <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="flex items-center justify-between gap-4">
