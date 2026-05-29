@@ -136,7 +136,10 @@ serve(async (req) => {
     const origin = origins[0]?.replace(/\/$/, '') || 'https://loyalty-enox.vercel.app';
     const cardUrl = `${origin}/card/${customer.id}`;
     const classId = `${issuerId}.store_${safeId(store.slug || store.id)}`;
-    const objectId = customer.google_wallet_object_id || `${issuerId}.customer_${safeId(customer.id.replaceAll('-', ''))}`;
+    const generatedObjectId = `${issuerId}.customer_${safeId(customer.id.replaceAll('-', ''))}`;
+    const objectId = String(customer.google_wallet_object_id || '').startsWith(`${issuerId}.`)
+      ? customer.google_wallet_object_id
+      : generatedObjectId;
     const total = store.stamps_required || 10;
     const current = customer.current_stamps || 0;
     const logoUrl = `${origin}/passkit/stamp-tiers/preview.png`;
