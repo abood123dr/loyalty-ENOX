@@ -59,6 +59,7 @@ const emptyForm = {
   passkit_enabled: false,
   passkit_program_id: '',
   passkit_tier_id: '',
+  passkit_stamp_tier_ids: {},
   passkit_template_id: '',
 };
 
@@ -92,8 +93,19 @@ const storePayload = (data) => ({
   passkit_enabled: Boolean(data.passkit_enabled),
   passkit_program_id: data.passkit_program_id || null,
   passkit_tier_id: data.passkit_tier_id || null,
+  passkit_stamp_tier_ids: data.passkit_stamp_tier_ids || {},
   passkit_template_id: data.passkit_template_id || null,
 });
+
+const updateStampTierId = (form, setForm, index, value) => {
+  setForm({
+    ...form,
+    passkit_stamp_tier_ids: {
+      ...(form.passkit_stamp_tier_ids || {}),
+      [index]: value.trim(),
+    },
+  });
+};
 
 function StoreForm({ form, setForm, submitLabel, isPending, onSubmit }) {
   return (
@@ -234,6 +246,20 @@ function StoreForm({ form, setForm, submitLabel, isPending, onSubmit }) {
             <Label>Template ID</Label>
             <Input className="mt-1" dir="ltr" value={form.passkit_template_id || ''} onChange={e => setForm({ ...form, passkit_template_id: e.target.value })} />
           </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index}>
+              <Label>{`Stamp ${index} Tier ID`}</Label>
+              <Input
+                className="mt-1"
+                dir="ltr"
+                value={form.passkit_stamp_tier_ids?.[index] || ''}
+                onChange={e => updateStampTierId(form, setForm, index, e.target.value)}
+                placeholder={index === 1 ? (form.passkit_tier_id || 'base') : `stamp_${index}`}
+              />
+            </div>
+          ))}
         </div>
       </div>
 

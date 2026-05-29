@@ -39,6 +39,7 @@ create table if not exists public.stores (
   lock_card_design boolean default true,
   passkit_program_id text,
   passkit_tier_id text,
+  passkit_stamp_tier_ids jsonb default '{}'::jsonb,
   passkit_template_id text,
   passkit_enabled boolean default false
 );

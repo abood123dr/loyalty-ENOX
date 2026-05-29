@@ -71,15 +71,18 @@ const compactStampText = (store: Record<string, string | number | null>, custome
 
 const tierIdForStamps = (
   baseTierId: string | null | undefined,
-  store: Record<string, string | number | null>,
+  store: Record<string, string | number | Record<string, string> | null>,
   customer: Record<string, string | number | null>,
 ) => {
   const required = Math.max(1, Number(store.stamps_required) || 5);
   const current = Math.max(0, Math.min(Number(customer.current_stamps) || 0, required));
+  const tierMap = (store.passkit_stamp_tier_ids || {}) as Record<string, string>;
+  const mappedTierId = tierMap[String(current)] || tierMap[current];
 
+  if (mappedTierId) return mappedTierId;
   if (required !== 5) return baseTierId || null;
   if (current === 1) return baseTierId || 'base';
-  return `stamp_${current}`;
+  return current === 0 ? baseTierId || 'stamp_0' : `stamp_${current}`;
 };
 
 const createStampProfileImage = (store: Record<string, string | number | null>, customer: Record<string, string | number | null>) => {
@@ -173,7 +176,7 @@ serve(async (req) => {
 
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id,name,slug,stamps_required,reward_description,card_bg_color,card_text_color,card_logo_url,logo_url,stamp_active_color,stamp_inactive_color,stamp_icon,stamp_strip_url,passkit_program_id,passkit_tier_id,passkit_enabled')
+      .select('id,name,slug,stamps_required,reward_description,card_bg_color,card_text_color,card_logo_url,logo_url,stamp_active_color,stamp_inactive_color,stamp_icon,stamp_strip_url,passkit_program_id,passkit_tier_id,passkit_stamp_tier_ids,passkit_enabled')
       .eq('id', storeId)
       .single();
     if (storeError) throw storeError;
