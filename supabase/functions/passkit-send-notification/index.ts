@@ -31,6 +31,9 @@ const createPassKitJwt = async (key: string, secret: string) => {
   return `${unsignedToken}.${base64Url(signature)}`;
 };
 
+const customerEmail = (customer: Record<string, string | null>) =>
+  customer.email || `customer-${String(customer.id).replace(/[^a-zA-Z0-9]/g, '')}@loyalty-enox.example.com`;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -73,7 +76,7 @@ serve(async (req) => {
     const programId = integration?.program_id || store.passkit_program_id;
     let customersQuery = supabase
       .from('store_customers')
-      .select('id,full_name,wallet_pass_id')
+      .select('id,full_name,phone,email,wallet_pass_id')
       .eq('store_id', storeId)
       .not('wallet_pass_id', 'is', null)
       .limit(500);
@@ -100,6 +103,13 @@ serve(async (req) => {
           programId,
           ...memberRef,
           operation: 'OPERATION_PATCH',
+          person: {
+            displayName: customer.full_name || 'Customer',
+            forename: customer.full_name || 'Customer',
+            surname: 'Customer',
+            emailAddress: customerEmail(customer),
+            mobileNumber: customer.phone || '',
+          },
           universal: {
             info: notificationText,
           },
