@@ -210,10 +210,11 @@ serve(async (req) => {
     const results = [];
 
     for (const customer of customers) {
+      const tierId = tierIdForStamps(baseTierId, store, customer);
       const payload = {
         id: customer.wallet_pass_id,
         programId,
-        tierId: tierIdForStamps(baseTierId, store, customer),
+        tierId,
         forename: customer.full_name,
         surname: 'Customer',
         mobileNumber: customer.phone,
@@ -265,12 +266,44 @@ serve(async (req) => {
       });
 
       const body = await response.json().catch(() => ({}));
+
+      let tierResponseOk = true;
+      let tierResponseStatus = response.status;
+      let tierResponseBody = {};
+      if (response.ok && tierId) {
+        const tierResponse = await fetch(`${apiBase}/members/member/tier`, {
+          method: 'PUT',
+          headers: {
+            Authorization: token,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            memberId: customer.wallet_pass_id,
+            programId,
+            tierId,
+            eventDetails: {
+              notes: `Stamp tier sync ${customer.current_stamps || 0}/${store.stamps_required || 5}`,
+              metaData: {
+                storeId,
+                customerId: customer.id,
+                currentStamps: String(customer.current_stamps || 0),
+                stampsRequired: String(store.stamps_required || 5),
+              },
+            },
+          }),
+        });
+        tierResponseOk = tierResponse.ok;
+        tierResponseStatus = tierResponse.status;
+        tierResponseBody = await tierResponse.json().catch(() => ({}));
+      }
+
       results.push({
         customerId: customer.id,
         passId: customer.wallet_pass_id,
-        ok: response.ok,
-        status: response.status,
-        details: response.ok ? undefined : body,
+        tierId,
+        ok: response.ok && tierResponseOk,
+        status: response.ok ? tierResponseStatus : response.status,
+        details: response.ok && tierResponseOk ? undefined : { memberUpdate: body, tierUpdate: tierResponseBody },
       });
     }
 
