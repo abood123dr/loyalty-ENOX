@@ -1,16 +1,17 @@
-import db from '@/api/base44Client';
+import db, { supabase } from '@/api/base44Client';
 
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
-import { Lock, Palette, RefreshCw, Upload } from 'lucide-react';
+import { Lock, Palette, RefreshCw, Upload, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DigitalStampCard from '@/components/wallet/DigitalStampCard';
+import { generateStampTierBlobs, stampTemplateOptions } from '@/lib/stampImageGenerator';
 
 const defaultDesign = (store = {}) => ({
   card_bg_color: store.card_bg_color || '#4b2a25',
@@ -29,6 +30,8 @@ export default function StampCards() {
   const [showEdit, setShowEdit] = useState(false);
   const [editData, setEditData] = useState(defaultDesign(currentStore));
   const [error, setError] = useState('');
+  const [stampTemplate, setStampTemplate] = useState('cafe');
+  const [generatingImages, setGeneratingImages] = useState(false);
 
   const store = currentStore;
   const locked = store?.lock_card_design && !isSuperAdmin;
@@ -72,6 +75,44 @@ export default function StampCards() {
       setEditData((current) => ({ ...current, [field]: result.file_url }));
     } catch (err) {
       setError(err.message || 'تعذر رفع الصورة.');
+    }
+  };
+
+  const generateImages = async () => {
+    if (!store) return;
+    setGeneratingImages(true);
+    setError('');
+    try {
+      const generated = await generateStampTierBlobs({
+        storeName: store.name,
+        template: stampTemplate,
+        cardBgColor: editData.card_bg_color,
+        cardTextColor: editData.card_text_color,
+        stampActiveColor: editData.stamp_active_color,
+        stampInactiveColor: editData.stamp_inactive_color,
+        totalStamps: editData.stamps_required,
+      });
+      const folder = `stamp-designs/${store.id}/${Date.now()}`;
+      let patternUrl = '';
+
+      for (const item of generated) {
+        const path = `${folder}/stamp-${item.tier}.png`;
+        const { error: uploadError } = await supabase.storage
+          .from('uploads')
+          .upload(path, item.blob, { contentType: 'image/png', upsert: true });
+        if (uploadError) throw uploadError;
+        if (item.tier === 0) {
+          const { data } = supabase.storage.from('uploads').getPublicUrl(path);
+          patternUrl = data.publicUrl.replace('stamp-0.png', 'stamp-{stamp}.png');
+        }
+      }
+
+      setEditData((current) => ({ ...current, stamp_strip_url: patternUrl }));
+      setError('تم توليد صور الطوابع. اضغط حفظ حتى تتزامن مع Google Wallet.');
+    } catch (err) {
+      setError(err.message || 'تعذر توليد صور الطوابع.');
+    } finally {
+      setGeneratingImages(false);
     }
   };
 
@@ -265,6 +306,29 @@ export default function StampCards() {
                   رفع
                   <input type="file" accept="image/*" className="hidden" onChange={e => uploadImage('stamp_strip_url', e.target.files?.[0])} />
                 </label>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/30 p-3">
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto] items-end">
+                  <div>
+                    <Label>مولد صور الطوابع حسب النشاط</Label>
+                    <Select value={stampTemplate} onValueChange={setStampTemplate}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {stampTemplateOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="button" variant="outline" onClick={generateImages} disabled={generatingImages}>
+                    <Wand2 className="w-4 h-4 ml-2" />
+                    {generatingImages ? 'جاري التوليد...' : 'توليد الصور'}
+                  </Button>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  يولد 6 صور تلقائيا من 0 إلى 5 طوابع، ويجعل Google Wallet يغير الصورة حسب عدد الطوابع.
+                </p>
               </div>
 
               <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => updateMutation.mutate(editData)} disabled={updateMutation.isPending}>

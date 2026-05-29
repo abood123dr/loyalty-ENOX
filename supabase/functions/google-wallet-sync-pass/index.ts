@@ -87,8 +87,11 @@ const stampLine = (current: number, total: number) => {
   return `${'\u25cf '.repeat(filled)}${'\u25cb '.repeat(cappedTotal - filled)}`.trim();
 };
 
-const stampTierImage = (origin: string, current: number, total: number) => {
+const stampTierImage = (origin: string, current: number, total: number, templateUrl?: string | null) => {
   const tier = Math.max(0, Math.min(Number(current) || 0, Math.min(Number(total) || 5, 5)));
+  if (templateUrl?.includes('{stamp}')) {
+    return templateUrl.replaceAll('{stamp}', String(tier));
+  }
   return `${origin}/wallet/stamp-tiers/stamp-${tier}.png`;
 };
 
@@ -133,7 +136,10 @@ serve(async (req) => {
     const defaultClassId = `${issuerId}.store_${safeId(store.id)}`;
     const imageVersion = `${store.updated_at || Date.now()}-${Date.now()}`;
     const logoUrl = withVersion(store.card_logo_url || store.logo_url || `${origin}/wallet/stamp-tiers/preview.png`, imageVersion);
-    const defaultHeroUrl = withVersion(store.stamp_strip_url || `${origin}/wallet/stamp-tiers/stamp-0.png`, imageVersion);
+    const classImageUrl = store.stamp_strip_url?.includes('{stamp}')
+      ? store.stamp_strip_url.replaceAll('{stamp}', '0')
+      : store.stamp_strip_url || `${origin}/wallet/stamp-tiers/stamp-0.png`;
+    const defaultHeroUrl = withVersion(classImageUrl, imageVersion);
     const classPayload = () => ({
       issuerName: store.name,
       programName: `${store.name} Rewards`,
@@ -166,7 +172,7 @@ serve(async (req) => {
 
       const current = customer.current_stamps || 0;
       const cardUrl = `${origin}/card/${customer.id}`;
-      const customerHeroUrl = withVersion(stampTierImage(origin, current, total), `${imageVersion}-${customer.id}-${current}`);
+      const customerHeroUrl = withVersion(stampTierImage(origin, current, total, store.stamp_strip_url), `${imageVersion}-${customer.id}-${current}`);
       const existingObject = await walletRequest(`loyaltyObject/${encodeURIComponent(customer.google_wallet_object_id)}`, token);
       const classId = String(existingObject.body?.classId || defaultClassId);
 

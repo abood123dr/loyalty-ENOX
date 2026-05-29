@@ -7,7 +7,7 @@ import { useStore } from '@/lib/useStore';
 import { motion } from 'framer-motion';
 import {
   Shield, Building2, Plus, MoreHorizontal, CheckCircle, XCircle, Lock, Search,
-  Edit, Trash2, Crown, Star, Globe, UserPlus, Palette, Save, Stamp
+  Edit, Trash2, Crown, Star, Globe, UserPlus, Palette, Save, Stamp, Wand2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { normalizeEmail, SUPER_ADMIN_EMAIL } from '@/lib/roles';
+import { generateStampTierBlobs, stampTemplateOptions } from '@/lib/stampImageGenerator';
 
 const planColors = {
   starter: 'bg-muted text-muted-foreground',
@@ -276,6 +277,8 @@ function StampCardPreview({ design }) {
 
 function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSave, isPending, syncMessage }) {
   const selectedStore = stores.find(store => store.id === selectedId);
+  const [stampTemplate, setStampTemplate] = useState('cafe');
+  const [generatingImages, setGeneratingImages] = useState(false);
   const uploadLogo = async (file) => {
     if (!file) return;
     const result = await db.integrations.Core.UploadFile(file);
@@ -285,6 +288,39 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
     if (!file) return;
     const result = await db.integrations.Core.UploadFile(file);
     setDraft({ ...draft, stamp_strip_url: result.file_url });
+  };
+  const generateImages = async () => {
+    if (!selectedStore) return;
+    setGeneratingImages(true);
+    try {
+      const generated = await generateStampTierBlobs({
+        storeName: draft.name || selectedStore.name,
+        template: stampTemplate,
+        cardBgColor: draft.card_bg_color,
+        cardTextColor: draft.card_text_color,
+        stampActiveColor: draft.stamp_active_color,
+        stampInactiveColor: draft.stamp_inactive_color,
+        totalStamps: draft.stamps_required,
+      });
+      const folder = `stamp-designs/${selectedStore.id}/${Date.now()}`;
+      let patternUrl = '';
+
+      for (const item of generated) {
+        const path = `${folder}/stamp-${item.tier}.png`;
+        const { error: uploadError } = await supabase.storage
+          .from('uploads')
+          .upload(path, item.blob, { contentType: 'image/png', upsert: true });
+        if (uploadError) throw uploadError;
+        if (item.tier === 0) {
+          const { data } = supabase.storage.from('uploads').getPublicUrl(path);
+          patternUrl = data.publicUrl.replace('stamp-0.png', 'stamp-{stamp}.png');
+        }
+      }
+
+      setDraft({ ...draft, stamp_strip_url: patternUrl });
+    } finally {
+      setGeneratingImages(false);
+    }
   };
 
   if (stores.length === 0) return null;
@@ -400,6 +436,29 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
               <p className="text-xs text-muted-foreground">السوبر أدمن فقط يتحكم في شكل البطاقة عند التفعيل.</p>
             </div>
             <Switch checked={Boolean(draft.lock_card_design)} onCheckedChange={v => setDraft({ ...draft, lock_card_design: v })} />
+          </div>
+
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] items-end">
+              <div>
+                <Label>مولد صور الطوابع حسب النشاط</Label>
+                <Select value={stampTemplate} onValueChange={setStampTemplate}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {stampTemplateOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="button" variant="outline" onClick={generateImages} disabled={generatingImages || !selectedId}>
+                <Wand2 className="w-4 h-4 ml-2" />
+                {generatingImages ? 'جاري التوليد...' : 'توليد الصور'}
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              يولد 6 صور خاصة بهذا المتجر ويجعل صورة Google Wallet تتغير عند إضافة كل طابع.
+            </p>
           </div>
 
           {syncMessage && (
