@@ -85,7 +85,7 @@ serve(async (req) => {
     const { data: customers = [], error: customersError } = await customersQuery;
     if (customersError) throw customersError;
 
-    const notificationText = `${title}\n${message}`;
+    const notificationText = `${title}\n${message}\n${new Date().toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' })}`;
     const token = await createPassKitJwt(restKey, restSecret);
     const results = [];
 
@@ -105,6 +105,7 @@ serve(async (req) => {
             info: notificationText,
           },
           metaData: {
+            'universal.info': notificationText,
             storeId,
             customerId: customer.id,
             notificationTitle: title,

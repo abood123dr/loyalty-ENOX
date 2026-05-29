@@ -238,6 +238,7 @@ serve(async (req) => {
         },
         operation: 'OPERATION_PATCH',
         metaData: {
+          'universal.info': stampText(store, customer),
           storeId,
           customerId: customer.id,
           storeName: store.name,

@@ -247,6 +247,7 @@ serve(async (req) => {
         info: stampText(store, customer),
       },
       metaData: {
+        'universal.info': stampText(store, customer),
         storeId,
         customerId,
         storeName: store.name,
