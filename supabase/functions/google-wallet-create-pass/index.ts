@@ -97,7 +97,7 @@ const withVersion = (uri: string | null | undefined, version: string) => {
 const stampLine = (current: number, total: number) => {
   const cappedTotal = Math.max(1, Math.min(total || 10, 20));
   const filled = Math.max(0, Math.min(current || 0, cappedTotal));
-  return `${'● '.repeat(filled)}${'○ '.repeat(cappedTotal - filled)}`.trim();
+  return `${'\u25cf '.repeat(filled)}${'\u25cb '.repeat(cappedTotal - filled)}`.trim();
 };
 
 serve(async (req) => {

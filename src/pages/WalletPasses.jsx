@@ -3,7 +3,7 @@ import db from '@/api/base44Client';
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Copy, ExternalLink, Info, MonitorSmartphone, Wallet } from 'lucide-react';
+import { Copy, ExternalLink, Info, MonitorSmartphone, RefreshCw, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useStore } from '@/lib/useStore';
@@ -53,6 +53,16 @@ export default function WalletPasses() {
     },
   });
 
+  const syncGoogleWalletMutation = useMutation({
+    mutationFn: () => db.integrations.GoogleWallet.syncPass({ storeId: currentStore.id }),
+    onSuccess: (result) => {
+      setMessage({ type: 'success', text: `تم إرسال تحديث Google Wallet إلى ${result?.updated || 0} بطاقة. التحديث على الجوال قد يتأخر قليلاً.` });
+    },
+    onError: (error) => {
+      setMessage({ type: 'error', text: error?.message || 'تعذر مزامنة Google Wallet.' });
+    },
+  });
+
   const copyLink = async (url) => {
     await navigator.clipboard.writeText(url);
     setMessage({ type: 'success', text: 'تم نسخ رابط البطاقة.' });
@@ -66,6 +76,12 @@ export default function WalletPasses() {
       <div>
         <h2 className="text-2xl font-bold text-foreground">البطاقات الرقمية</h2>
         <p className="mt-1 text-sm text-muted-foreground">بطاقات طوابع داخلية مع دعم Google Wallet، وApple Wallet وSamsung Wallet لاحقاً.</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={!currentStore || syncGoogleWalletMutation.isPending} onClick={() => syncGoogleWalletMutation.mutate()}>
+          <RefreshCw className="h-4 w-4 ml-2" />
+          {syncGoogleWalletMutation.isPending ? 'جاري المزامنة...' : 'مزامنة Google Wallet'}
+        </Button>
       </div>
 
       {message && (

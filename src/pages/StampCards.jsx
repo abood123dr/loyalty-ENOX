@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
-import { Lock, Palette, Upload } from 'lucide-react';
+import { Lock, Palette, RefreshCw, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,6 +57,14 @@ export default function StampCards() {
     onError: (err) => setError(err.message || 'تعذر حفظ تصميم البطاقة.'),
   });
 
+  const syncMutation = useMutation({
+    mutationFn: () => db.integrations.GoogleWallet.syncPass({ storeId: store.id }),
+    onSuccess: (result) => {
+      setError(`تم إرسال تحديث Google Wallet إلى ${result?.updated || 0} بطاقة. قد يحتاج الظهور على الجوال من دقيقة إلى عدة دقائق.`);
+    },
+    onError: (err) => setError(err.message || 'تعذر مزامنة Google Wallet.'),
+  });
+
   const uploadImage = async (field, file) => {
     if (!file) return;
     try {
@@ -89,9 +97,15 @@ export default function StampCards() {
           <p className="text-sm text-muted-foreground mt-1">كل متجر له بطاقة وطوابع وتصميم مستقل.</p>
         </div>
         {!locked ? (
-          <Button className="bg-primary hover:bg-primary/90" onClick={handleEdit}>
-            <Palette className="w-4 h-4 ml-2" />تعديل التصميم
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending}>
+              <RefreshCw className="w-4 h-4 ml-2" />
+              {syncMutation.isPending ? 'جاري المزامنة...' : 'مزامنة Google Wallet'}
+            </Button>
+            <Button className="bg-primary hover:bg-primary/90" onClick={handleEdit}>
+              <Palette className="w-4 h-4 ml-2" />تعديل التصميم
+            </Button>
+          </div>
         ) : (
           <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-2">
             <Lock className="w-4 h-4 text-destructive" />
@@ -104,6 +118,12 @@ export default function StampCards() {
         <div className="flex items-center gap-3 rounded-2xl border border-border bg-muted/50 p-4">
           <Lock className="w-5 h-5 shrink-0 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">السوبر أدمن فقط يستطيع تعديل تصميم هذه البطاقة.</p>
+        </div>
+      )}
+
+      {error && !showEdit && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-primary">
+          {error}
         </div>
       )}
 
