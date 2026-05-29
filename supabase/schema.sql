@@ -33,6 +33,7 @@ create table if not exists public.stores (
   stamp_active_color text default '#FFFFFF',
   stamp_inactive_color text default '#FFFFFF33',
   stamp_icon text default 'check',
+  stamp_strip_url text,
   stamps_required integer default 10,
   reward_description text default 'مشروبك العاشر مجانا!',
   lock_card_design boolean default true,

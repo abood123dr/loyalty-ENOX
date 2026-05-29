@@ -53,6 +53,7 @@ const emptyForm = {
   stamp_active_color: '#FFFFFF',
   stamp_inactive_color: '#FFFFFF33',
   stamp_icon: 'check',
+  stamp_strip_url: '',
   lock_card_design: true,
   is_active: true,
   passkit_enabled: false,
@@ -85,6 +86,7 @@ const storePayload = (data) => ({
   stamp_active_color: data.stamp_active_color || '#FFFFFF',
   stamp_inactive_color: data.stamp_inactive_color || '#FFFFFF33',
   stamp_icon: data.stamp_icon || 'check',
+  stamp_strip_url: data.stamp_strip_url || null,
   lock_card_design: Boolean(data.lock_card_design),
   is_active: Boolean(data.is_active),
   passkit_enabled: Boolean(data.passkit_enabled),
@@ -298,6 +300,11 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
     const result = await db.integrations.Core.UploadFile(file);
     setDraft({ ...draft, card_logo_url: result.file_url });
   };
+  const uploadStrip = async (file) => {
+    if (!file) return;
+    const result = await db.integrations.Core.UploadFile(file);
+    setDraft({ ...draft, stamp_strip_url: result.file_url });
+  };
 
   if (stores.length === 0) return null;
 
@@ -344,6 +351,17 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
             <div>
               <Label className="sr-only">رفع لوجو</Label>
               <Input type="file" accept="image/*" className="mt-1 w-44" onChange={e => uploadLogo(e.target.files?.[0])} />
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
+            <div>
+              <Label>صورة الطوابع في PassKit</Label>
+              <Input className="mt-1" dir="ltr" value={draft.stamp_strip_url || ''} onChange={e => setDraft({ ...draft, stamp_strip_url: e.target.value })} placeholder="https://..." />
+            </div>
+            <div>
+              <Label className="sr-only">رفع صورة الطوابع</Label>
+              <Input type="file" accept="image/*" className="mt-1 w-44" onChange={e => uploadStrip(e.target.files?.[0])} />
             </div>
           </div>
 
@@ -457,6 +475,7 @@ export default function SuperAdmin() {
       stamp_active_color: store.stamp_active_color || '#FFFFFF',
       stamp_inactive_color: store.stamp_inactive_color || '#FFFFFF33',
       stamp_icon: store.stamp_icon || 'check',
+      stamp_strip_url: store.stamp_strip_url || '',
       lock_card_design: Boolean(store.lock_card_design),
     });
   }, [allStores, designStoreId]);
@@ -521,6 +540,7 @@ export default function SuperAdmin() {
         stamp_active_color: designDraft.stamp_active_color || '#FFFFFF',
         stamp_inactive_color: designDraft.stamp_inactive_color || '#FFFFFF33',
         stamp_icon: designDraft.stamp_icon || 'check',
+        stamp_strip_url: designDraft.stamp_strip_url || null,
         lock_card_design: Boolean(designDraft.lock_card_design),
       });
 

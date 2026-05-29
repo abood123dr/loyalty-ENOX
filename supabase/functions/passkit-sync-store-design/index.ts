@@ -130,7 +130,7 @@ serve(async (req) => {
 
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id,name,slug,stamps_required,reward_description,card_bg_color,card_text_color,card_logo_url,logo_url,stamp_active_color,stamp_inactive_color,stamp_icon,passkit_program_id,passkit_tier_id,passkit_enabled')
+      .select('id,name,slug,stamps_required,reward_description,card_bg_color,card_text_color,card_logo_url,logo_url,stamp_active_color,stamp_inactive_color,stamp_icon,stamp_strip_url,passkit_program_id,passkit_tier_id,passkit_enabled')
       .eq('id', storeId)
       .single();
     if (storeError) throw storeError;
@@ -176,7 +176,7 @@ serve(async (req) => {
           mobileNumber: customer.phone,
         },
         points: customer.current_stamps || 0,
-        profileImage: createStampProfileImage(store, customer),
+        profileImage: store.stamp_strip_url || createStampProfileImage(store, customer),
         universal: {
           info: stampText(store, customer),
         },
@@ -192,6 +192,7 @@ serve(async (req) => {
           stampActiveColor: store.stamp_active_color || '#FFFFFF',
           stampInactiveColor: store.stamp_inactive_color || '#FFFFFF33',
           stampIcon: store.stamp_icon || 'check',
+          stampStripUrl: store.stamp_strip_url || '',
         },
         passOverrides: {
           colors: {
