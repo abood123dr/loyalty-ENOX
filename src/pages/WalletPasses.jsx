@@ -144,6 +144,16 @@ export default function WalletPasses() {
                    c.wallet_type === 'google' ? 'Google' :
                    c.wallet_type === 'both' ? 'Apple + Google' : 'لا يوجد'}
                 </Badge>
+                {c.wallet_pass_url && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={!passkitReady || issuingCustomerId === c.id}
+                    onClick={() => issuePassMutation.mutate(c.id)}
+                  >
+                    {issuingCustomerId === c.id ? 'Reissuing...' : 'Reissue'}
+                  </Button>
+                )}
                 {c.wallet_pass_url ? (
                   <Button variant="ghost" size="sm" onClick={() => window.open(c.wallet_pass_url, '_blank')}>
                     فتح البطاقة
