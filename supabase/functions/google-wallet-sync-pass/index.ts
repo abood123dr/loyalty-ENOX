@@ -87,6 +87,11 @@ const stampLine = (current: number, total: number) => {
   return `${'\u25cf '.repeat(filled)}${'\u25cb '.repeat(cappedTotal - filled)}`.trim();
 };
 
+const stampTierImage = (origin: string, current: number, total: number) => {
+  const tier = Math.max(0, Math.min(Number(current) || 0, Math.min(Number(total) || 5, 5)));
+  return `${origin}/wallet/stamp-tiers/stamp-${tier}.png`;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
@@ -128,18 +133,18 @@ serve(async (req) => {
     const defaultClassId = `${issuerId}.store_${safeId(store.id)}`;
     const imageVersion = `${store.updated_at || Date.now()}-${Date.now()}`;
     const logoUrl = withVersion(store.card_logo_url || store.logo_url || `${origin}/wallet/stamp-tiers/preview.png`, imageVersion);
-    const heroUrl = withVersion(store.stamp_strip_url, imageVersion);
+    const defaultHeroUrl = withVersion(store.stamp_strip_url || `${origin}/wallet/stamp-tiers/stamp-0.png`, imageVersion);
     const classPayload = () => ({
       issuerName: store.name,
       programName: `${store.name} Rewards`,
       programLogo: googleImage(logoUrl, `${store.name} logo`),
       wideProgramLogo: googleImage(logoUrl, `${store.name} logo`),
       hexBackgroundColor: store.card_bg_color || '#4b2a25',
-      ...(heroUrl ? {
-        heroImage: googleImage(heroUrl, `${store.name} stamp card`),
+      ...(defaultHeroUrl ? {
+        heroImage: googleImage(defaultHeroUrl, `${store.name} stamp card`),
         imageModulesData: [
           {
-            mainImage: googleImage(heroUrl, `${store.name} stamps`),
+            mainImage: googleImage(defaultHeroUrl, `${store.name} stamps`),
             id: 'stamp_design_class',
           },
         ],
@@ -161,6 +166,7 @@ serve(async (req) => {
 
       const current = customer.current_stamps || 0;
       const cardUrl = `${origin}/card/${customer.id}`;
+      const customerHeroUrl = withVersion(stampTierImage(origin, current, total), `${imageVersion}-${customer.id}-${current}`);
       const existingObject = await walletRequest(`loyaltyObject/${encodeURIComponent(customer.google_wallet_object_id)}`, token);
       const classId = String(existingObject.body?.classId || defaultClassId);
 
@@ -189,11 +195,11 @@ serve(async (req) => {
           uris: [{ id: 'web_card', uri: cardUrl, description: 'Open digital card' }],
         },
       };
-      if (heroUrl) {
-        objectPayload.heroImage = googleImage(heroUrl, `${store.name} stamp card`);
+      if (customerHeroUrl) {
+        objectPayload.heroImage = googleImage(customerHeroUrl, `${store.name} stamp card`);
         objectPayload.imageModulesData = [
           {
-            mainImage: googleImage(heroUrl, `${store.name} stamps`),
+            mainImage: googleImage(customerHeroUrl, `${store.name} stamps`),
             id: 'stamp_design',
           },
         ];

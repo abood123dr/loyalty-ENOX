@@ -100,6 +100,11 @@ const stampLine = (current: number, total: number) => {
   return `${'\u25cf '.repeat(filled)}${'\u25cb '.repeat(cappedTotal - filled)}`.trim();
 };
 
+const stampTierImage = (origin: string, current: number, total: number) => {
+  const tier = Math.max(0, Math.min(Number(current) || 0, Math.min(Number(total) || 5, 5)));
+  return `${origin}/wallet/stamp-tiers/stamp-${tier}.png`;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -156,7 +161,8 @@ serve(async (req) => {
     const current = customer.current_stamps || 0;
     const imageVersion = `${store.updated_at || Date.now()}-${Date.now()}`;
     const logoUrl = withVersion(store.card_logo_url || store.logo_url || `${origin}/wallet/stamp-tiers/preview.png`, imageVersion);
-    const heroUrl = withVersion(store.stamp_strip_url, imageVersion);
+    const classHeroUrl = withVersion(store.stamp_strip_url || `${origin}/wallet/stamp-tiers/stamp-0.png`, imageVersion);
+    const objectHeroUrl = withVersion(stampTierImage(origin, current, total), `${imageVersion}-${customer.id}-${current}`);
 
     const loyaltyClass = {
       id: classId,
@@ -166,11 +172,11 @@ serve(async (req) => {
       programLogo: googleImage(logoUrl, `${store.name} logo`),
       wideProgramLogo: googleImage(logoUrl, `${store.name} logo`),
       hexBackgroundColor: store.card_bg_color || '#4b2a25',
-      ...(heroUrl ? {
-        heroImage: googleImage(heroUrl, `${store.name} stamp card`),
+      ...(classHeroUrl ? {
+        heroImage: googleImage(classHeroUrl, `${store.name} stamp card`),
         imageModulesData: [
           {
-            mainImage: googleImage(heroUrl, `${store.name} stamps`),
+            mainImage: googleImage(classHeroUrl, `${store.name} stamps`),
             id: 'stamp_design_class',
           },
         ],
@@ -218,11 +224,11 @@ serve(async (req) => {
           },
         ],
       },
-      ...(heroUrl ? {
-        heroImage: googleImage(heroUrl, `${store.name} stamp card`),
+      ...(objectHeroUrl ? {
+        heroImage: googleImage(objectHeroUrl, `${store.name} stamp card`),
         imageModulesData: [
           {
-            mainImage: googleImage(heroUrl, `${store.name} stamps`),
+            mainImage: googleImage(objectHeroUrl, `${store.name} stamps`),
             id: 'stamp_design',
           },
         ],
