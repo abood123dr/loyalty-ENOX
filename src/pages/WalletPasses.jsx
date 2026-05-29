@@ -38,6 +38,21 @@ export default function WalletPasses() {
     },
   });
 
+  const googleWalletMutation = useMutation({
+    mutationFn: (customer) => db.integrations.GoogleWallet.createPass({
+      storeId: currentStore.id,
+      customerId: customer.id,
+    }),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ['store-customers', currentStore?.id] });
+      window.open(result.saveUrl, '_blank');
+      setMessage({ type: 'success', text: 'تم تجهيز رابط Google Wallet.' });
+    },
+    onError: (error) => {
+      setMessage({ type: 'error', text: error?.message || 'تعذر تجهيز Google Wallet.' });
+    },
+  });
+
   const copyLink = async (url) => {
     await navigator.clipboard.writeText(url);
     setMessage({ type: 'success', text: 'تم نسخ رابط البطاقة.' });
@@ -122,6 +137,9 @@ export default function WalletPasses() {
                   </Badge>
                   <Button variant="secondary" size="sm" onClick={() => createWebCardMutation.mutate(customer)}>
                     {hasWebCard ? 'تحديث الرابط' : 'إنشاء بطاقة'}
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={!currentStore || googleWalletMutation.isPending} onClick={() => googleWalletMutation.mutate(customer)}>
+                    Google Wallet
                   </Button>
                   <Button variant="ghost" size="icon" onClick={() => copyLink(url)} title="نسخ الرابط">
                     <Copy className="h-4 w-4" />

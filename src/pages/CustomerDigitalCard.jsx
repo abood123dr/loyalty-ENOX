@@ -2,13 +2,14 @@ import db from '@/api/base44Client';
 
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Gift, Phone, RotateCw } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { ArrowLeft, Gift, Phone, RotateCw, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DigitalStampCard from '@/components/wallet/DigitalStampCard';
 
 export default function CustomerDigitalCard() {
   const { customerId } = useParams();
+  const [walletError, setWalletError] = React.useState('');
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['customer-digital-card', customerId],
@@ -18,6 +19,18 @@ export default function CustomerDigitalCard() {
       return { customer, store };
     },
     enabled: Boolean(customerId),
+  });
+
+  const googleWalletMutation = useMutation({
+    mutationFn: () => db.integrations.GoogleWallet.createPass({
+      storeId: data.store.id,
+      customerId: data.customer.id,
+    }),
+    onSuccess: (result) => {
+      setWalletError('');
+      window.open(result.saveUrl, '_blank');
+    },
+    onError: (err) => setWalletError(err.message || 'تعذر إنشاء بطاقة Google Wallet'),
   });
 
   if (isLoading) {
@@ -56,6 +69,20 @@ export default function CustomerDigitalCard() {
         </div>
 
         <DigitalStampCard store={store} customer={customer} value={`${window.location.origin}/card/${customer.id}`} />
+
+        <Button
+          className="mt-5 w-full gap-2 bg-white text-neutral-950 hover:bg-white/90"
+          onClick={() => googleWalletMutation.mutate()}
+          disabled={googleWalletMutation.isPending}
+        >
+          <Smartphone className="h-4 w-4" />
+          {googleWalletMutation.isPending ? 'جاري تجهيز Google Wallet...' : 'Add to Google Wallet'}
+        </Button>
+        {walletError && (
+          <div className="mt-3 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-100">
+            {walletError}
+          </div>
+        )}
 
         <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="flex items-center justify-between gap-4">
