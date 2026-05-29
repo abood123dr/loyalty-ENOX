@@ -1,4 +1,4 @@
-import db from '@/api/base44Client';
+import db, { supabase } from '@/api/base44Client';
 
 import React, { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -64,9 +64,9 @@ const slugify = (value) => value
   .replace(/\s+/g, '-')
   .replace(/[^a-z0-9-]/g, '');
 
-const storePayload = (data) => ({
+const storePayload = (data, slugOverride) => ({
   name: data.name,
-  slug: slugify(data.slug || data.name),
+  slug: slugOverride || slugify(data.slug || data.name),
   email: normalizeEmail(data.email),
   phone: data.phone,
   city: data.city,
@@ -437,6 +437,33 @@ export default function SuperAdmin() {
   const [error, setError] = useState('');
   const [designSyncMessage, setDesignSyncMessage] = useState(null);
 
+  const createUniqueSlug = async (data, currentStoreId = null) => {
+    const base = slugify(data.slug || data.name) || `store-${Date.now()}`;
+    const existingSlugs = new Set(
+      allStores
+        .filter(store => store.id !== currentStoreId)
+        .map(store => store.slug)
+        .filter(Boolean)
+    );
+
+    const { data: remoteStores } = await supabase
+      .from('stores')
+      .select('id,slug')
+      .like('slug', `${base}%`);
+
+    (remoteStores || [])
+      .filter(store => store.id !== currentStoreId)
+      .forEach(store => existingSlugs.add(store.slug));
+
+    if (!existingSlugs.has(base)) return base;
+
+    let index = 2;
+    while (existingSlugs.has(`${base}-${index}`)) {
+      index += 1;
+    }
+    return `${base}-${index}`;
+  };
+
   useEffect(() => {
     if (!designStoreId && allStores[0]?.id) {
       setDesignStoreId(allStores[0].id);
@@ -464,7 +491,8 @@ export default function SuperAdmin() {
   const createMutation = useMutation({
     mutationFn: async (data) => {
       setError('');
-      const store = await db.entities.Store.create(storePayload(data));
+      const uniqueSlug = await createUniqueSlug(data);
+      const store = await db.entities.Store.create(storePayload(data, uniqueSlug));
 
       if (data.owner_email && data.owner_password) {
         const userResult = await db.auth.createStoreUser({
@@ -493,7 +521,10 @@ export default function SuperAdmin() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => db.entities.Store.update(id, storePayload(data)),
+    mutationFn: async ({ id, data }) => {
+      const uniqueSlug = await createUniqueSlug(data, id);
+      return db.entities.Store.update(id, storePayload(data, uniqueSlug));
+    },
     onSuccess: () => {
       reloadStores();
       setEditingStore(null);
