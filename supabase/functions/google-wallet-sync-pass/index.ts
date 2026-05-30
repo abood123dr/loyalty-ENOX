@@ -82,6 +82,11 @@ const withVersion = (uri: string | null | undefined, version: string) => {
   return `${uri}${separator}v=${encodeURIComponent(version)}`;
 };
 
+const isDirectImageUrl = (uri: string | null | undefined) => {
+  if (!uri) return false;
+  return /\.(png|jpe?g|webp|gif)(\?|$)/i.test(uri) || uri.includes('/storage/v1/object/public/');
+};
+
 const stampLine = (current: number, total: number) => {
   const cappedTotal = Math.max(1, Math.min(total || 10, 20));
   const filled = Math.max(0, Math.min(current || 0, cappedTotal));
@@ -136,12 +141,18 @@ serve(async (req) => {
     const total = store.stamps_required || 10;
     const defaultClassId = `${issuerId}.store_${safeId(store.id)}_${colorKey(store.card_bg_color)}`;
     const imageVersion = `${store.updated_at || Date.now()}-${Date.now()}`;
-    const logoUrl = withVersion(store.card_logo_url || store.logo_url || `${origin}/wallet/stamp-tiers/preview.png`, imageVersion);
+    const rawLogoUrl = isDirectImageUrl(store.card_logo_url)
+      ? store.card_logo_url
+      : isDirectImageUrl(store.logo_url)
+        ? store.logo_url
+        : `${origin}/wallet/stamp-tiers/preview.png`;
+    const logoUrl = withVersion(rawLogoUrl, imageVersion);
     const classImageUrl = store.stamp_strip_url?.includes('{stamp}')
       ? store.stamp_strip_url.replaceAll('{stamp}', '0')
       : store.stamp_strip_url || `${origin}/wallet/stamp-tiers/stamp-0.png`;
     const defaultHeroUrl = withVersion(classImageUrl, imageVersion);
     const classPayload = () => ({
+      reviewStatus: 'UNDER_REVIEW',
       issuerName: store.name,
       programName: `${store.name} Rewards`,
       programLogo: googleImage(logoUrl, `${store.name} logo`),
