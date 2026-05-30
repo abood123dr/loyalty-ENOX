@@ -149,7 +149,7 @@ const loadImage = (src) => new Promise((resolve) => {
 
 const drawCustomStamp = (ctx, image, x, y, size, active, colors) => {
   ctx.save();
-  ctx.globalAlpha = active ? 1 : 0.24;
+  ctx.globalAlpha = active ? 1 : 0.9;
   ctx.fillStyle = active ? colors.accent : 'rgba(255,255,255,0.12)';
   ctx.strokeStyle = active ? colors.text : colors.inactive;
   ctx.lineWidth = 7;
@@ -183,6 +183,7 @@ export const generateStampTierImages = async ({
   subtitle,
   stampLabel = 'STAMP',
   customStampImageUrl,
+  customEmptyStampImageUrl,
 }) => {
   const selected = templates[template] || templates.cafe;
   const total = clamp(Number(totalStamps) || 5, 1, 5);
@@ -191,6 +192,7 @@ export const generateStampTierImages = async ({
   const inactive = stampInactiveColor || `${text}66`;
   const images = [];
   const customStampImage = await loadImage(customStampImageUrl);
+  const customEmptyStampImage = await loadImage(customEmptyStampImageUrl);
 
   for (let tier = 0; tier <= 5; tier += 1) {
     const canvas = document.createElement('canvas');
@@ -230,8 +232,12 @@ export const generateStampTierImages = async ({
     const y = 238;
     for (let index = 0; index < 5; index += 1) {
       const x = startX + index * spacing;
-      if (customStampImage) {
-        drawCustomStamp(ctx, customStampImage, x, y, 126, index < tier, { text, accent, inactive });
+      if (customStampImage || customEmptyStampImage) {
+        const active = index < tier;
+        const stampImage = active ? customStampImage : (customEmptyStampImage || customStampImage);
+        if (stampImage) {
+          drawCustomStamp(ctx, stampImage, x, y, 126, active, { text, accent, inactive });
+        }
       } else {
         drawShape(ctx, selected.shapes[index] || 'gift', x, y, 126, index < tier, {
           text,
