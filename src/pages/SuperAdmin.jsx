@@ -88,6 +88,13 @@ const storePayload = (data, slugOverride) => ({
   is_active: Boolean(data.is_active),
 });
 
+const fileToDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
 function StoreForm({ form, setForm, submitLabel, isPending, onSubmit }) {
   return (
     <div className="space-y-4 mt-2">
@@ -280,7 +287,7 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
   const [stampTemplate, setStampTemplate] = useState('cafe');
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generatedImages, setGeneratedImages] = useState([]);
-  const [imageText, setImageText] = useState({ title: '', subtitle: '', stampLabel: 'STAMP' });
+  const [imageText, setImageText] = useState({ title: '', subtitle: '', stampLabel: 'STAMP', stampImageUrl: '' });
   const uploadLogo = async (file) => {
     if (!file) return;
     const result = await db.integrations.Core.UploadFile(file);
@@ -306,6 +313,7 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
         title: imageText.title || draft.name || selectedStore.name,
         subtitle: imageText.subtitle || draft.reward_description,
         stampLabel: imageText.stampLabel,
+        customStampImageUrl: imageText.stampImageUrl,
       });
       setGeneratedImages(generated);
     } finally {
@@ -478,6 +486,33 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
               <Label>النص الصغير</Label>
               <Input className="mt-1" value={imageText.subtitle || draft.reward_description || ''} onChange={e => setImageText({ ...imageText, subtitle: e.target.value })} />
             </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] items-end">
+              <div>
+                <Label>صورة الطابع الخاصة</Label>
+                <Input className="mt-1" dir="ltr" value={imageText.stampImageUrl} onChange={e => setImageText({ ...imageText, stampImageUrl: e.target.value })} placeholder="https://..." />
+              </div>
+              <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-input px-3 text-sm">
+                <Upload className="h-4 w-4" />
+                رفع الطابع
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const dataUrl = await fileToDataUrl(file);
+                    setImageText(current => ({ ...current, stampImageUrl: dataUrl }));
+                  }}
+                />
+              </label>
+            </div>
+            {imageText.stampImageUrl && (
+              <div className="mt-3 flex items-center gap-3 rounded-lg border border-border bg-background p-2">
+                <img src={imageText.stampImageUrl} alt="stamp" className="h-14 w-14 rounded-full object-cover" />
+                <span className="text-xs text-muted-foreground">هذه الصورة ستصبح شكل الطابع داخل صور Google Wallet.</span>
+              </div>
+            )}
             {generatedImages.length > 0 && (
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {generatedImages.map(image => (

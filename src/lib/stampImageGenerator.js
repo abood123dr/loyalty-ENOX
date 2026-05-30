@@ -135,6 +135,37 @@ const drawShape = (ctx, kind, x, y, size, active, colors) => {
 
 const canvasToBlob = (canvas) => new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 0.95));
 
+const loadImage = (src) => new Promise((resolve) => {
+  if (!src) {
+    resolve(null);
+    return;
+  }
+  const image = new Image();
+  image.crossOrigin = 'anonymous';
+  image.onload = () => resolve(image);
+  image.onerror = () => resolve(null);
+  image.src = src;
+});
+
+const drawCustomStamp = (ctx, image, x, y, size, active, colors) => {
+  ctx.save();
+  ctx.globalAlpha = active ? 1 : 0.24;
+  ctx.fillStyle = active ? colors.accent : 'rgba(255,255,255,0.12)';
+  ctx.strokeStyle = active ? colors.text : colors.inactive;
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.arc(x, y, size * 0.42, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.clip();
+
+  const ratio = Math.max(size * 0.82 / image.width, size * 0.82 / image.height);
+  const width = image.width * ratio;
+  const height = image.height * ratio;
+  ctx.drawImage(image, x - width / 2, y - height / 2, width, height);
+  ctx.restore();
+};
+
 export const stampTemplateOptions = Object.entries(templates).map(([value, item]) => ({
   value,
   label: item.label,
@@ -151,6 +182,7 @@ export const generateStampTierImages = async ({
   title,
   subtitle,
   stampLabel = 'STAMP',
+  customStampImageUrl,
 }) => {
   const selected = templates[template] || templates.cafe;
   const total = clamp(Number(totalStamps) || 5, 1, 5);
@@ -158,6 +190,7 @@ export const generateStampTierImages = async ({
   const accent = stampActiveColor || selected.accent;
   const inactive = stampInactiveColor || `${text}66`;
   const images = [];
+  const customStampImage = await loadImage(customStampImageUrl);
 
   for (let tier = 0; tier <= 5; tier += 1) {
     const canvas = document.createElement('canvas');
@@ -197,11 +230,15 @@ export const generateStampTierImages = async ({
     const y = 238;
     for (let index = 0; index < 5; index += 1) {
       const x = startX + index * spacing;
-      drawShape(ctx, selected.shapes[index] || 'gift', x, y, 126, index < tier, {
-        text,
-        accent,
-        inactive,
-      });
+      if (customStampImage) {
+        drawCustomStamp(ctx, customStampImage, x, y, 126, index < tier, { text, accent, inactive });
+      } else {
+        drawShape(ctx, selected.shapes[index] || 'gift', x, y, 126, index < tier, {
+          text,
+          accent,
+          inactive,
+        });
+      }
       ctx.fillStyle = text;
       ctx.globalAlpha = index < tier ? 0.95 : 0.45;
       ctx.font = 'bold 18px Arial, sans-serif';

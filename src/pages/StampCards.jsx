@@ -25,6 +25,13 @@ const defaultDesign = (store = {}) => ({
   reward_description: store.reward_description || '',
 });
 
+const fileToDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
 export default function StampCards() {
   const { currentStore, isSuperAdmin, reloadStores } = useStore();
   const [showEdit, setShowEdit] = useState(false);
@@ -33,7 +40,7 @@ export default function StampCards() {
   const [stampTemplate, setStampTemplate] = useState('cafe');
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generatedImages, setGeneratedImages] = useState([]);
-  const [imageText, setImageText] = useState({ title: '', subtitle: '', stampLabel: 'STAMP' });
+  const [imageText, setImageText] = useState({ title: '', subtitle: '', stampLabel: 'STAMP', stampImageUrl: '' });
 
   const store = currentStore;
   const locked = store?.lock_card_design && !isSuperAdmin;
@@ -96,6 +103,7 @@ export default function StampCards() {
         title: imageText.title,
         subtitle: imageText.subtitle,
         stampLabel: imageText.stampLabel,
+        customStampImageUrl: imageText.stampImageUrl,
       });
       setGeneratedImages(generated);
       setError('هذه معاينة فقط. إذا أعجبك التصميم اضغط اعتماد ورفع الصور.');
@@ -139,7 +147,7 @@ export default function StampCards() {
     setEditData(defaultDesign(store));
     setError('');
     setGeneratedImages([]);
-    setImageText({ title: store?.name || '', subtitle: store?.reward_description || '', stampLabel: 'STAMP' });
+    setImageText({ title: store?.name || '', subtitle: store?.reward_description || '', stampLabel: 'STAMP', stampImageUrl: '' });
     setShowEdit(true);
   };
 
@@ -355,6 +363,33 @@ export default function StampCards() {
                   <Label>النص الصغير</Label>
                   <Input className="mt-1" value={imageText.subtitle} onChange={e => setImageText({ ...imageText, subtitle: e.target.value })} />
                 </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] items-end">
+                  <div>
+                    <Label>صورة الطابع الخاصة</Label>
+                    <Input className="mt-1" dir="ltr" value={imageText.stampImageUrl} onChange={e => setImageText({ ...imageText, stampImageUrl: e.target.value })} placeholder="https://..." />
+                  </div>
+                  <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-input px-3 text-sm">
+                    <Upload className="h-4 w-4" />
+                    رفع الطابع
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const dataUrl = await fileToDataUrl(file);
+                        setImageText(current => ({ ...current, stampImageUrl: dataUrl }));
+                      }}
+                    />
+                  </label>
+                </div>
+                {imageText.stampImageUrl && (
+                  <div className="mt-3 flex items-center gap-3 rounded-lg border border-border bg-background p-2">
+                    <img src={imageText.stampImageUrl} alt="stamp" className="h-14 w-14 rounded-full object-cover" />
+                    <span className="text-xs text-muted-foreground">هذه الصورة ستصبح شكل الطابع داخل صور Google Wallet.</span>
+                  </div>
+                )}
                 {generatedImages.length > 0 && (
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {generatedImages.map(image => (
