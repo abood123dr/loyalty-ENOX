@@ -46,13 +46,52 @@ export default function StampCards() {
   const locked = store?.lock_card_design && !isSuperAdmin;
   const previewStore = { ...store, ...editData };
 
+  const buildGeneratedImages = () => generateStampTierImages({
+    storeName: store.name,
+    template: stampTemplate,
+    cardBgColor: editData.card_bg_color,
+    cardTextColor: editData.card_text_color,
+    stampActiveColor: editData.stamp_active_color,
+    stampInactiveColor: editData.stamp_inactive_color,
+    totalStamps: editData.stamps_required,
+    title: imageText.title,
+    subtitle: imageText.subtitle,
+    stampLabel: imageText.stampLabel,
+    customStampImageUrl: imageText.stampImageUrl,
+    customEmptyStampImageUrl: imageText.emptyStampImageUrl,
+  });
+
+  const uploadImageSet = async (images) => {
+    const folder = `stamp-designs/${store.id}/${Date.now()}`;
+    let patternUrl = '';
+
+    for (const item of images) {
+      const path = `${folder}/stamp-${item.tier}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from('uploads')
+        .upload(path, item.blob, { contentType: 'image/png', upsert: true });
+      if (uploadError) throw uploadError;
+      if (item.tier === 0) {
+        const { data } = supabase.storage.from('uploads').getPublicUrl(path);
+        patternUrl = data.publicUrl.replace('stamp-0.png', 'stamp-{stamp}.png');
+      }
+    }
+
+    return patternUrl;
+  };
+
   const updateMutation = useMutation({
     mutationFn: async (data) => {
+      const shouldRefreshImages = data.stamp_strip_url?.includes('{stamp}') || generatedImages.length > 0;
+      const refreshedStampStripUrl = shouldRefreshImages
+        ? await uploadImageSet(await buildGeneratedImages())
+        : data.stamp_strip_url;
+
       await db.entities.Store.update(store.id, {
         card_bg_color: data.card_bg_color || '#4b2a25',
         card_text_color: data.card_text_color || '#ffffff',
         card_logo_url: data.card_logo_url || null,
-        stamp_strip_url: data.stamp_strip_url || null,
+        stamp_strip_url: refreshedStampStripUrl || null,
         stamp_active_color: data.stamp_active_color || '#d9b85f',
         stamp_inactive_color: data.stamp_inactive_color || '#ffffff33',
         stamp_icon: data.stamp_icon || 'coffee',
@@ -92,20 +131,7 @@ export default function StampCards() {
     setGeneratingImages(true);
     setError('');
     try {
-      const generated = await generateStampTierImages({
-        storeName: store.name,
-        template: stampTemplate,
-        cardBgColor: editData.card_bg_color,
-        cardTextColor: editData.card_text_color,
-        stampActiveColor: editData.stamp_active_color,
-        stampInactiveColor: editData.stamp_inactive_color,
-        totalStamps: editData.stamps_required,
-        title: imageText.title,
-        subtitle: imageText.subtitle,
-        stampLabel: imageText.stampLabel,
-        customStampImageUrl: imageText.stampImageUrl,
-        customEmptyStampImageUrl: imageText.emptyStampImageUrl,
-      });
+      const generated = await buildGeneratedImages();
       setGeneratedImages(generated);
       setError('هذه معاينة فقط. إذا أعجبك التصميم اضغط اعتماد ورفع الصور.');
     } catch (err) {
@@ -120,20 +146,7 @@ export default function StampCards() {
     setGeneratingImages(true);
     setError('');
     try {
-      const folder = `stamp-designs/${store.id}/${Date.now()}`;
-      let patternUrl = '';
-
-      for (const item of generatedImages) {
-        const path = `${folder}/stamp-${item.tier}.png`;
-        const { error: uploadError } = await supabase.storage
-          .from('uploads')
-          .upload(path, item.blob, { contentType: 'image/png', upsert: true });
-        if (uploadError) throw uploadError;
-        if (item.tier === 0) {
-          const { data } = supabase.storage.from('uploads').getPublicUrl(path);
-          patternUrl = data.publicUrl.replace('stamp-0.png', 'stamp-{stamp}.png');
-        }
-      }
+      const patternUrl = await uploadImageSet(generatedImages);
 
       setEditData((current) => ({ ...current, stamp_strip_url: patternUrl }));
       setError('تم رفع الصور. اضغط حفظ حتى تتزامن مع Google Wallet.');

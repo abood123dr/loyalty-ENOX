@@ -298,25 +298,45 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
     const result = await db.integrations.Core.UploadFile(file);
     setDraft({ ...draft, stamp_strip_url: result.file_url });
   };
+  const buildGeneratedImages = () => generateStampTierImages({
+    storeName: draft.name || selectedStore.name,
+    template: stampTemplate,
+    cardBgColor: draft.card_bg_color,
+    cardTextColor: draft.card_text_color,
+    stampActiveColor: draft.stamp_active_color,
+    stampInactiveColor: draft.stamp_inactive_color,
+    totalStamps: draft.stamps_required,
+    title: imageText.title || draft.name || selectedStore.name,
+    subtitle: imageText.subtitle || draft.reward_description,
+    stampLabel: imageText.stampLabel,
+    customStampImageUrl: imageText.stampImageUrl,
+    customEmptyStampImageUrl: imageText.emptyStampImageUrl,
+  });
+
+  const uploadImageSet = async (images) => {
+    const folder = `stamp-designs/${selectedStore.id}/${Date.now()}`;
+    let patternUrl = '';
+
+    for (const item of images) {
+      const path = `${folder}/stamp-${item.tier}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from('uploads')
+        .upload(path, item.blob, { contentType: 'image/png', upsert: true });
+      if (uploadError) throw uploadError;
+      if (item.tier === 0) {
+        const { data } = supabase.storage.from('uploads').getPublicUrl(path);
+        patternUrl = data.publicUrl.replace('stamp-0.png', 'stamp-{stamp}.png');
+      }
+    }
+
+    return patternUrl;
+  };
+
   const previewImages = async () => {
     if (!selectedStore) return;
     setGeneratingImages(true);
     try {
-      const generated = await generateStampTierImages({
-        storeName: draft.name || selectedStore.name,
-        template: stampTemplate,
-        cardBgColor: draft.card_bg_color,
-        cardTextColor: draft.card_text_color,
-        stampActiveColor: draft.stamp_active_color,
-        stampInactiveColor: draft.stamp_inactive_color,
-        totalStamps: draft.stamps_required,
-        title: imageText.title || draft.name || selectedStore.name,
-        subtitle: imageText.subtitle || draft.reward_description,
-        stampLabel: imageText.stampLabel,
-        customStampImageUrl: imageText.stampImageUrl,
-        customEmptyStampImageUrl: imageText.emptyStampImageUrl,
-      });
-      setGeneratedImages(generated);
+      setGeneratedImages(await buildGeneratedImages());
     } finally {
       setGeneratingImages(false);
     }
@@ -325,22 +345,22 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
     if (!selectedStore || generatedImages.length === 0) return;
     setGeneratingImages(true);
     try {
-      const folder = `stamp-designs/${selectedStore.id}/${Date.now()}`;
-      let patternUrl = '';
-
-      for (const item of generatedImages) {
-        const path = `${folder}/stamp-${item.tier}.png`;
-        const { error: uploadError } = await supabase.storage
-          .from('uploads')
-          .upload(path, item.blob, { contentType: 'image/png', upsert: true });
-        if (uploadError) throw uploadError;
-        if (item.tier === 0) {
-          const { data } = supabase.storage.from('uploads').getPublicUrl(path);
-          patternUrl = data.publicUrl.replace('stamp-0.png', 'stamp-{stamp}.png');
-        }
+      setDraft({ ...draft, stamp_strip_url: await uploadImageSet(generatedImages) });
+    } finally {
+      setGeneratingImages(false);
+    }
+  };
+  const handleSave = async () => {
+    if (!selectedStore) return;
+    setGeneratingImages(true);
+    try {
+      let nextDraft = draft;
+      if (generatedImages.length > 0 || draft.stamp_strip_url?.includes('{stamp}')) {
+        const images = generatedImages.length > 0 ? generatedImages : await buildGeneratedImages();
+        nextDraft = { ...draft, stamp_strip_url: await uploadImageSet(images) };
+        setDraft(nextDraft);
       }
-
-      setDraft({ ...draft, stamp_strip_url: patternUrl });
+      onSave(nextDraft);
     } finally {
       setGeneratingImages(false);
     }
@@ -576,9 +596,9 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
             </div>
           )}
 
-          <Button className="w-full bg-primary hover:bg-primary/90" disabled={!selectedId || isPending} onClick={onSave}>
+          <Button className="w-full bg-primary hover:bg-primary/90" disabled={!selectedId || isPending || generatingImages} onClick={handleSave}>
             <Save className="w-4 h-4 ml-2" />
-            {isPending ? 'جاري الحفظ...' : 'حفظ إعدادات البطاقة'}
+            {isPending || generatingImages ? 'جاري الحفظ...' : 'حفظ إعدادات البطاقة'}
           </Button>
         </div>
       </div>
@@ -702,20 +722,22 @@ export default function SuperAdmin() {
   });
 
   const designMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (draftOverride) => {
       setDesignSyncMessage(null);
+      const draftToSave = draftOverride || designDraft;
+
       await db.entities.Store.update(designStoreId, {
-        name: designDraft.name,
-        stamps_required: Number(designDraft.stamps_required) || 10,
-        reward_description: designDraft.reward_description,
-        card_bg_color: designDraft.card_bg_color || '#7C3AED',
-        card_text_color: designDraft.card_text_color || '#FFFFFF',
-        card_logo_url: designDraft.card_logo_url || null,
-        stamp_active_color: designDraft.stamp_active_color || '#FFFFFF',
-        stamp_inactive_color: designDraft.stamp_inactive_color || '#FFFFFF33',
-        stamp_icon: designDraft.stamp_icon || 'check',
-        stamp_strip_url: designDraft.stamp_strip_url || null,
-        lock_card_design: Boolean(designDraft.lock_card_design),
+        name: draftToSave.name,
+        stamps_required: Number(draftToSave.stamps_required) || 10,
+        reward_description: draftToSave.reward_description,
+        card_bg_color: draftToSave.card_bg_color || '#7C3AED',
+        card_text_color: draftToSave.card_text_color || '#FFFFFF',
+        card_logo_url: draftToSave.card_logo_url || null,
+        stamp_active_color: draftToSave.stamp_active_color || '#FFFFFF',
+        stamp_inactive_color: draftToSave.stamp_inactive_color || '#FFFFFF33',
+        stamp_icon: draftToSave.stamp_icon || 'check',
+        stamp_strip_url: draftToSave.stamp_strip_url || null,
+        lock_card_design: Boolean(draftToSave.lock_card_design),
       });
 
       return db.integrations.GoogleWallet.syncPass({ storeId: designStoreId });
@@ -838,7 +860,7 @@ export default function SuperAdmin() {
         onSelect={setDesignStoreId}
         draft={designDraft}
         setDraft={setDesignDraft}
-        onSave={() => designMutation.mutate()}
+        onSave={(nextDraft) => designMutation.mutate(nextDraft)}
         isPending={designMutation.isPending}
         syncMessage={designSyncMessage}
       />
