@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DigitalStampCard from '@/components/wallet/DigitalStampCard';
-import { generateStampTierBlobs, stampTemplateOptions } from '@/lib/stampImageGenerator';
+import { generateStampTierImages, stampTemplateOptions } from '@/lib/stampImageGenerator';
 
 const defaultDesign = (store = {}) => ({
   card_bg_color: store.card_bg_color || '#4b2a25',
@@ -32,6 +32,8 @@ export default function StampCards() {
   const [error, setError] = useState('');
   const [stampTemplate, setStampTemplate] = useState('cafe');
   const [generatingImages, setGeneratingImages] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState([]);
+  const [imageText, setImageText] = useState({ title: '', subtitle: '', stampLabel: 'STAMP' });
 
   const store = currentStore;
   const locked = store?.lock_card_design && !isSuperAdmin;
@@ -78,12 +80,12 @@ export default function StampCards() {
     }
   };
 
-  const generateImages = async () => {
+  const previewImages = async () => {
     if (!store) return;
     setGeneratingImages(true);
     setError('');
     try {
-      const generated = await generateStampTierBlobs({
+      const generated = await generateStampTierImages({
         storeName: store.name,
         template: stampTemplate,
         cardBgColor: editData.card_bg_color,
@@ -91,11 +93,28 @@ export default function StampCards() {
         stampActiveColor: editData.stamp_active_color,
         stampInactiveColor: editData.stamp_inactive_color,
         totalStamps: editData.stamps_required,
+        title: imageText.title,
+        subtitle: imageText.subtitle,
+        stampLabel: imageText.stampLabel,
       });
+      setGeneratedImages(generated);
+      setError('هذه معاينة فقط. إذا أعجبك التصميم اضغط اعتماد ورفع الصور.');
+    } catch (err) {
+      setError(err.message || 'تعذر توليد معاينة الصور.');
+    } finally {
+      setGeneratingImages(false);
+    }
+  };
+
+  const uploadGeneratedImages = async () => {
+    if (!store || generatedImages.length === 0) return;
+    setGeneratingImages(true);
+    setError('');
+    try {
       const folder = `stamp-designs/${store.id}/${Date.now()}`;
       let patternUrl = '';
 
-      for (const item of generated) {
+      for (const item of generatedImages) {
         const path = `${folder}/stamp-${item.tier}.png`;
         const { error: uploadError } = await supabase.storage
           .from('uploads')
@@ -108,9 +127,9 @@ export default function StampCards() {
       }
 
       setEditData((current) => ({ ...current, stamp_strip_url: patternUrl }));
-      setError('تم توليد صور الطوابع. اضغط حفظ حتى تتزامن مع Google Wallet.');
+      setError('تم رفع الصور. اضغط حفظ حتى تتزامن مع Google Wallet.');
     } catch (err) {
-      setError(err.message || 'تعذر توليد صور الطوابع.');
+      setError(err.message || 'تعذر رفع صور الطوابع.');
     } finally {
       setGeneratingImages(false);
     }
@@ -119,6 +138,8 @@ export default function StampCards() {
   const handleEdit = () => {
     setEditData(defaultDesign(store));
     setError('');
+    setGeneratedImages([]);
+    setImageText({ title: store?.name || '', subtitle: store?.reward_description || '', stampLabel: 'STAMP' });
     setShowEdit(true);
   };
 
@@ -309,7 +330,7 @@ export default function StampCards() {
               </div>
 
               <div className="rounded-xl border border-border bg-muted/30 p-3">
-                <div className="grid gap-3 sm:grid-cols-[1fr_auto] items-end">
+                <div className="grid gap-3 sm:grid-cols-3">
                   <div>
                     <Label>مولد صور الطوابع حسب النشاط</Label>
                     <Select value={stampTemplate} onValueChange={setStampTemplate}>
@@ -321,13 +342,40 @@ export default function StampCards() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button type="button" variant="outline" onClick={generateImages} disabled={generatingImages}>
+                  <div>
+                    <Label>عنوان الصورة</Label>
+                    <Input className="mt-1" value={imageText.title} onChange={e => setImageText({ ...imageText, title: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>كلمة الطابع</Label>
+                    <Input className="mt-1" dir="ltr" value={imageText.stampLabel} onChange={e => setImageText({ ...imageText, stampLabel: e.target.value })} />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <Label>النص الصغير</Label>
+                  <Input className="mt-1" value={imageText.subtitle} onChange={e => setImageText({ ...imageText, subtitle: e.target.value })} />
+                </div>
+                {generatedImages.length > 0 && (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {generatedImages.map(image => (
+                      <div key={image.tier} className="rounded-lg border border-border bg-background p-2">
+                        <img src={image.dataUrl} alt={`stamp ${image.tier}`} className="aspect-[1125/432] w-full rounded-md object-cover" />
+                        <p className="mt-1 text-center text-xs text-muted-foreground">{image.tier}/5</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <Button type="button" variant="outline" onClick={previewImages} disabled={generatingImages}>
                     <Wand2 className="w-4 h-4 ml-2" />
-                    {generatingImages ? 'جاري التوليد...' : 'توليد الصور'}
+                    {generatingImages ? 'جاري المعاينة...' : 'معاينة الصور'}
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={uploadGeneratedImages} disabled={generatingImages || generatedImages.length === 0}>
+                    اعتماد ورفع الصور
                   </Button>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  يولد 6 صور تلقائيا من 0 إلى 5 طوابع، ويجعل Google Wallet يغير الصورة حسب عدد الطوابع.
+                  عدل الألوان والنصوص ثم اضغط معاينة. لا يتم رفع أي صورة حتى تضغط اعتماد ورفع الصور.
                 </p>
               </div>
 

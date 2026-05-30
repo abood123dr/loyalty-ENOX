@@ -140,7 +140,7 @@ export const stampTemplateOptions = Object.entries(templates).map(([value, item]
   label: item.label,
 }));
 
-export const generateStampTierBlobs = async ({
+export const generateStampTierImages = async ({
   storeName,
   template = 'cafe',
   cardBgColor = '#4b2a25',
@@ -148,13 +148,16 @@ export const generateStampTierBlobs = async ({
   stampActiveColor,
   stampInactiveColor,
   totalStamps = 5,
+  title,
+  subtitle,
+  stampLabel = 'STAMP',
 }) => {
   const selected = templates[template] || templates.cafe;
   const total = clamp(Number(totalStamps) || 5, 1, 5);
   const text = cardTextColor || (isLight(cardBgColor) ? '#171717' : '#ffffff');
   const accent = stampActiveColor || selected.accent;
   const inactive = stampInactiveColor || `${text}66`;
-  const blobs = [];
+  const images = [];
 
   for (let tier = 0; tier <= 5; tier += 1) {
     const canvas = document.createElement('canvas');
@@ -177,10 +180,10 @@ export const generateStampTierBlobs = async ({
     ctx.fillStyle = text;
     ctx.textAlign = 'left';
     ctx.font = 'bold 72px Arial, sans-serif';
-    ctx.fillText(String(storeName || 'LOYALTY').slice(0, 22).toUpperCase(), 62, 104);
+    ctx.fillText(String(title || storeName || 'LOYALTY').slice(0, 22).toUpperCase(), 62, 104);
     ctx.font = '26px Arial, sans-serif';
     ctx.globalAlpha = 0.82;
-    ctx.fillText(selected.tagline, 68, 385);
+    ctx.fillText(String(subtitle || selected.tagline).slice(0, 48), 68, 385);
     ctx.globalAlpha = 1;
 
     ctx.textAlign = 'right';
@@ -203,15 +206,21 @@ export const generateStampTierBlobs = async ({
       ctx.globalAlpha = index < tier ? 0.95 : 0.45;
       ctx.font = 'bold 18px Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('STAMP', x, y + 74);
+      ctx.fillText(String(stampLabel || 'STAMP').slice(0, 10).toUpperCase(), x, y + 74);
       ctx.globalAlpha = 1;
     }
 
-    blobs.push({
+    images.push({
       tier,
       blob: await canvasToBlob(canvas),
+      dataUrl: canvas.toDataURL('image/png'),
     });
   }
 
-  return blobs;
+  return images;
+};
+
+export const generateStampTierBlobs = async (options) => {
+  const images = await generateStampTierImages(options);
+  return images.map(({ tier, blob }) => ({ tier, blob }));
 };

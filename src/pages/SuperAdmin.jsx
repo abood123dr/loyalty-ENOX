@@ -19,7 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { normalizeEmail, SUPER_ADMIN_EMAIL } from '@/lib/roles';
-import { generateStampTierBlobs, stampTemplateOptions } from '@/lib/stampImageGenerator';
+import { generateStampTierImages, stampTemplateOptions } from '@/lib/stampImageGenerator';
 
 const planColors = {
   starter: 'bg-muted text-muted-foreground',
@@ -279,6 +279,8 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
   const selectedStore = stores.find(store => store.id === selectedId);
   const [stampTemplate, setStampTemplate] = useState('cafe');
   const [generatingImages, setGeneratingImages] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState([]);
+  const [imageText, setImageText] = useState({ title: '', subtitle: '', stampLabel: 'STAMP' });
   const uploadLogo = async (file) => {
     if (!file) return;
     const result = await db.integrations.Core.UploadFile(file);
@@ -289,11 +291,11 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
     const result = await db.integrations.Core.UploadFile(file);
     setDraft({ ...draft, stamp_strip_url: result.file_url });
   };
-  const generateImages = async () => {
+  const previewImages = async () => {
     if (!selectedStore) return;
     setGeneratingImages(true);
     try {
-      const generated = await generateStampTierBlobs({
+      const generated = await generateStampTierImages({
         storeName: draft.name || selectedStore.name,
         template: stampTemplate,
         cardBgColor: draft.card_bg_color,
@@ -301,11 +303,23 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
         stampActiveColor: draft.stamp_active_color,
         stampInactiveColor: draft.stamp_inactive_color,
         totalStamps: draft.stamps_required,
+        title: imageText.title || draft.name || selectedStore.name,
+        subtitle: imageText.subtitle || draft.reward_description,
+        stampLabel: imageText.stampLabel,
       });
+      setGeneratedImages(generated);
+    } finally {
+      setGeneratingImages(false);
+    }
+  };
+  const uploadGeneratedImages = async () => {
+    if (!selectedStore || generatedImages.length === 0) return;
+    setGeneratingImages(true);
+    try {
       const folder = `stamp-designs/${selectedStore.id}/${Date.now()}`;
       let patternUrl = '';
 
-      for (const item of generated) {
+      for (const item of generatedImages) {
         const path = `${folder}/stamp-${item.tier}.png`;
         const { error: uploadError } = await supabase.storage
           .from('uploads')
@@ -439,7 +453,7 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
           </div>
 
           <div className="rounded-xl border border-border bg-muted/30 p-3">
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto] items-end">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <Label>مولد صور الطوابع حسب النشاط</Label>
                 <Select value={stampTemplate} onValueChange={setStampTemplate}>
@@ -451,13 +465,40 @@ function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSav
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="button" variant="outline" onClick={generateImages} disabled={generatingImages || !selectedId}>
+              <div>
+                <Label>عنوان الصورة</Label>
+                <Input className="mt-1" value={imageText.title || draft.name || ''} onChange={e => setImageText({ ...imageText, title: e.target.value })} />
+              </div>
+              <div>
+                <Label>كلمة الطابع</Label>
+                <Input className="mt-1" dir="ltr" value={imageText.stampLabel} onChange={e => setImageText({ ...imageText, stampLabel: e.target.value })} />
+              </div>
+            </div>
+            <div className="mt-3">
+              <Label>النص الصغير</Label>
+              <Input className="mt-1" value={imageText.subtitle || draft.reward_description || ''} onChange={e => setImageText({ ...imageText, subtitle: e.target.value })} />
+            </div>
+            {generatedImages.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {generatedImages.map(image => (
+                  <div key={image.tier} className="rounded-lg border border-border bg-background p-2">
+                    <img src={image.dataUrl} alt={`stamp ${image.tier}`} className="aspect-[1125/432] w-full rounded-md object-cover" />
+                    <p className="mt-1 text-center text-xs text-muted-foreground">{image.tier}/5</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <Button type="button" variant="outline" onClick={previewImages} disabled={generatingImages || !selectedId}>
                 <Wand2 className="w-4 h-4 ml-2" />
-                {generatingImages ? 'جاري التوليد...' : 'توليد الصور'}
+                {generatingImages ? 'جاري المعاينة...' : 'معاينة الصور'}
+              </Button>
+              <Button type="button" variant="secondary" onClick={uploadGeneratedImages} disabled={generatingImages || generatedImages.length === 0}>
+                اعتماد ورفع الصور
               </Button>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              يولد 6 صور خاصة بهذا المتجر ويجعل صورة Google Wallet تتغير عند إضافة كل طابع.
+              عدل الألوان والنصوص ثم عاين الصور. لا يتم رفعها للبطاقة إلا بعد اعتمادها.
             </p>
           </div>
 
