@@ -1,31 +1,31 @@
 import db from '@/api/base44Client';
 
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-import { useStore } from '@/lib/useStore';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Bell, Plus, MapPin, Send, Navigation } from 'lucide-react';
+import { Bell, MapPin, Navigation, Plus, Send, Wallet } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { useStore } from '@/lib/useStore';
 
 export default function Notifications() {
   const { currentStore, reloadStores } = useStore();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ title: '', message: '', type: 'manual', targetMode: 'all', customerId: '' });
+  const [form, setForm] = useState({ title: '', message: '', targetMode: 'all', customerId: '' });
   const [sendResult, setSendResult] = useState(null);
 
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications', currentStore?.id],
     queryFn: () => currentStore
-      ? db.entities.Notification.filter({ store_id: currentStore.id }, '-created_date', 50)
-      : db.entities.Notification.list('-created_date', 50),
+      ? db.entities.Notification.filter({ store_id: currentStore.id }, '-created_at', 50)
+      : db.entities.Notification.list('-created_at', 50),
   });
 
   const { data: customers = [] } = useQuery({
@@ -37,28 +37,39 @@ export default function Notifications() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => db.entities.Notification.create({
-      store_id: currentStore.id,
-      title: data.title,
-      message: data.message,
-      type: 'manual',
-      target_mode: data.targetMode,
-      customer_id: data.targetMode === 'customer' ? data.customerId : null,
-      status: 'sent',
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['notifications', currentStore?.id]);
+    mutationFn: async (data) => {
+      const walletResult = await db.integrations.GoogleWallet.sendNotification({
+        storeId: currentStore.id,
+        customerId: data.targetMode === 'customer' ? data.customerId : undefined,
+        title: data.title,
+        message: data.message,
+      });
+
+      await db.entities.Notification.create({
+        store_id: currentStore.id,
+        title: data.title,
+        message: data.message,
+        type: 'google_wallet',
+        target: data.targetMode === 'customer' ? `customer:${data.customerId}` : 'all',
+        sent_count: walletResult?.sent || 0,
+        status: walletResult?.failed ? 'partial' : 'sent',
+      });
+
+      return walletResult;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['notifications', currentStore?.id] });
       setSendResult({
-        type: 'success',
-        text: 'تم حفظ الإشعار داخل النظام. إرسال إشعارات Apple Wallet وSamsung Wallet سيتم ربطه في المرحلة القادمة.',
+        type: result?.failed ? 'warning' : 'success',
+        text: `تم إرسال تحديث Google Wallet إلى ${result?.sent || 0} بطاقة.${result?.skipped ? ` تم تخطي ${result.skipped} عميل بدون بطاقة Google Wallet.` : ''}${result?.failed ? ` فشل ${result.failed} بطاقة.` : ''}`,
       });
       setShowAdd(false);
-      setForm({ title: '', message: '', type: 'manual' });
+      setForm({ title: '', message: '', targetMode: 'all', customerId: '' });
     },
     onError: (error) => {
       setSendResult({
         type: 'error',
-        text: error?.message || 'تعذر حفظ الإشعار.',
+        text: error?.message || 'تعذر إرسال إشعار Google Wallet.',
       });
     },
   });
@@ -69,55 +80,85 @@ export default function Notifications() {
   });
 
   const geofenceEnabled = currentStore?.geofence_enabled || false;
+  const walletCustomersCount = customers.filter((customer) => customer.google_wallet_object_id).length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-foreground">الإشعارات</h2>
-          <p className="text-sm text-muted-foreground mt-1">إشعارات يدوية وجغرافية</p>
+          <p className="mt-1 text-sm text-muted-foreground">إرسال رسائل داخل Google Wallet للعملاء</p>
         </div>
         {currentStore && (
           <Dialog open={showAdd} onOpenChange={setShowAdd}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90">
-                <Plus className="w-4 h-4 ml-2" />إشعار جديد
+                <Plus className="ml-2 h-4 w-4" />
+                إشعار Google Wallet
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-sm">
-              <DialogHeader><DialogTitle>إرسال إشعار جديد</DialogTitle></DialogHeader>
-              <div className="space-y-4 mt-2">
+              <DialogHeader>
+                <DialogTitle>إرسال إشعار Google Wallet</DialogTitle>
+              </DialogHeader>
+              <div className="mt-2 space-y-4">
+                <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs text-blue-700">
+                  يصل الإشعار للعملاء الذين أضافوا البطاقة إلى Google Wallet فقط.
+                </div>
+
                 <div>
                   <Label>المستلم</Label>
-                  <Select value={form.targetMode} onValueChange={value => setForm({ ...form, targetMode: value, customerId: '' })}>
+                  <Select value={form.targetMode} onValueChange={(value) => setForm({ ...form, targetMode: value, customerId: '' })}>
                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">كل العملاء</SelectItem>
+                      <SelectItem value="all">كل عملاء Google Wallet ({walletCustomersCount})</SelectItem>
                       <SelectItem value="customer">عميل محدد</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
                 {form.targetMode === 'customer' && (
                   <div>
                     <Label>اختر العميل</Label>
-                    <Select value={form.customerId} onValueChange={value => setForm({ ...form, customerId: value })}>
+                    <Select value={form.customerId} onValueChange={(value) => setForm({ ...form, customerId: value })}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="اختر عميل" /></SelectTrigger>
                       <SelectContent>
-                        {customers.map(customer => (
+                        {customers.filter((customer) => customer.google_wallet_object_id).map((customer) => (
                           <SelectItem key={customer.id} value={customer.id}>
-                            {customer.full_name} - {customer.phone}
+                            {customer.full_name} - {customer.phone || 'بدون رقم'}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 )}
-                <div><Label>العنوان</Label><Input className="mt-1" placeholder="عنوان الإشعار" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
-                <div><Label>الرسالة</Label><Input className="mt-1" placeholder="نص الإشعار..." value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} /></div>
-                <Button className="w-full bg-primary hover:bg-primary/90"
+
+                <div>
+                  <Label>العنوان</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="مثال: عرض اليوم"
+                    value={form.title}
+                    onChange={(event) => setForm({ ...form, title: event.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label>الرسالة</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="مثال: ختمين إضافيين عند زيارتك اليوم"
+                    value={form.message}
+                    onChange={(event) => setForm({ ...form, message: event.target.value })}
+                  />
+                </div>
+
+                <Button
+                  className="w-full bg-primary hover:bg-primary/90"
                   onClick={() => createMutation.mutate(form)}
-                  disabled={!form.title || !form.message || (form.targetMode === 'customer' && !form.customerId) || createMutation.isPending}>
-                  <Send className="w-4 h-4 ml-2" />
+                  disabled={!form.title || !form.message || (form.targetMode === 'customer' && !form.customerId) || createMutation.isPending}
+                >
+                  <Send className="ml-2 h-4 w-4" />
                   {createMutation.isPending ? 'جاري الإرسال...' : 'إرسال الإشعار'}
                 </Button>
               </div>
@@ -126,101 +167,97 @@ export default function Notifications() {
         )}
       </div>
 
-      {/* Geofencing Section */}
+      {sendResult && (
+        <div className={`whitespace-pre-wrap rounded-xl border p-3 text-sm ${
+          sendResult.type === 'error'
+            ? 'border-destructive/20 bg-destructive/10 text-destructive'
+            : sendResult.type === 'warning'
+              ? 'border-amber-500/20 bg-amber-500/10 text-amber-700'
+              : 'border-success/20 bg-success/10 text-success'
+        }`}>
+          {sendResult.text}
+        </div>
+      )}
+
       {currentStore && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-border rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
+          className="rounded-2xl border border-border bg-card p-6">
+          <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Navigation className="w-5 h-5 text-primary" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                <Navigation className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <p className="font-semibold">إشعارات الموقع الجغرافي</p>
-                <p className="text-xs text-muted-foreground">تُرسَل تلقائياً عند اقتراب العميل من المتجر</p>
+                <p className="text-xs text-muted-foreground">جاهزة كإعدادات، وربطها كتنبيه موقع سيتم لاحقا</p>
               </div>
             </div>
             <Switch
               checked={geofenceEnabled}
-              onCheckedChange={(v) => updateGeofenceMutation.mutate({ geofence_enabled: v })}
+              onCheckedChange={(value) => updateGeofenceMutation.mutate({ geofence_enabled: value })}
               className="data-[state=checked]:bg-primary"
             />
           </div>
 
           {geofenceEnabled && (
-            <div className="space-y-3 pt-4 border-t border-border">
+            <div className="space-y-3 border-t border-border pt-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">خط العرض (Latitude)</Label>
+                  <Label className="text-xs">خط العرض</Label>
                   <Input className="mt-1 text-sm" dir="ltr" placeholder="24.7136"
                     defaultValue={currentStore.latitude}
-                    onBlur={e => updateGeofenceMutation.mutate({ latitude: parseFloat(e.target.value) })} />
+                    onBlur={(event) => updateGeofenceMutation.mutate({ latitude: parseFloat(event.target.value) })} />
                 </div>
                 <div>
-                  <Label className="text-xs">خط الطول (Longitude)</Label>
+                  <Label className="text-xs">خط الطول</Label>
                   <Input className="mt-1 text-sm" dir="ltr" placeholder="46.6753"
                     defaultValue={currentStore.longitude}
-                    onBlur={e => updateGeofenceMutation.mutate({ longitude: parseFloat(e.target.value) })} />
+                    onBlur={(event) => updateGeofenceMutation.mutate({ longitude: parseFloat(event.target.value) })} />
                 </div>
               </div>
               <div>
-                <Label className="text-xs">نطاق الإشعار (بالمتر)</Label>
+                <Label className="text-xs">نطاق الإشعار بالمتر</Label>
                 <Input className="mt-1 text-sm" dir="ltr" type="number" placeholder="200"
                   defaultValue={currentStore.geofence_radius || 200}
-                  onBlur={e => updateGeofenceMutation.mutate({ geofence_radius: parseInt(e.target.value) })} />
+                  onBlur={(event) => updateGeofenceMutation.mutate({ geofence_radius: parseInt(event.target.value, 10) })} />
               </div>
               <div>
-                <Label className="text-xs">رسالة الإشعار الجغرافي</Label>
-                <Input className="mt-1 text-sm" placeholder='مثال: "أنت قريب من متجرنا ☕ — طابعان متبقيان!"'
+                <Label className="text-xs">رسالة الموقع</Label>
+                <Input className="mt-1 text-sm" placeholder="أنت قريب من متجرنا، لا تنس بطاقتك"
                   defaultValue={currentStore.geofence_message}
-                  onBlur={e => updateGeofenceMutation.mutate({ geofence_message: e.target.value })} />
-              </div>
-              <div className="p-3 bg-muted/50 rounded-xl">
-                <p className="text-xs text-muted-foreground">
-                  📍 سيتم ربط إشعارات الموقع مع Apple Wallet وSamsung Wallet في المرحلة القادمة عندما يقترب العميل من
-                  <span className="font-medium text-foreground"> {currentStore.geofence_radius || 200}م </span>
-                  من الموقع المحدد.
-                </p>
+                  onBlur={(event) => updateGeofenceMutation.mutate({ geofence_message: event.target.value })} />
               </div>
             </div>
           )}
         </motion.div>
       )}
 
-      {sendResult && (
-        <div className={`rounded-xl border p-3 text-sm whitespace-pre-wrap ${
-          sendResult.type === 'error'
-            ? 'border-destructive/20 bg-destructive/10 text-destructive'
-            : 'border-success/20 bg-success/10 text-success'
-        }`}>
-          {sendResult.text}
-        </div>
-      )}
-
-      {/* Notifications List */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="border-b border-border px-5 py-4">
           <h3 className="font-semibold">الإشعارات المرسلة</h3>
         </div>
         {notifications.length === 0 ? (
           <div className="py-16 text-center">
-            <Bell className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="text-muted-foreground text-sm">لا توجد إشعارات بعد</p>
+            <Bell className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">لا توجد إشعارات بعد</p>
           </div>
         ) : (
-          notifications.map((n, i) => (
-            <div key={n.id} className="px-5 py-4 border-b border-border last:border-0 flex items-start justify-between gap-4">
+          notifications.map((notification) => (
+            <div key={notification.id} className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 last:border-0">
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  {n.type === 'geofence' ? <MapPin className="w-4 h-4 text-primary" /> : <Bell className="w-4 h-4 text-primary" />}
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  {notification.type === 'geofence'
+                    ? <MapPin className="h-4 w-4 text-primary" />
+                    : <Wallet className="h-4 w-4 text-primary" />}
                 </div>
                 <div>
-                  <p className="text-sm font-medium">{n.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
+                  <p className="text-sm font-medium">{notification.title}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{notification.message}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">تم الإرسال إلى {notification.sent_count || 0} بطاقة</p>
                 </div>
               </div>
-              <Badge className={n.status === 'sent' ? 'bg-success/10 text-success shrink-0' : 'bg-muted text-muted-foreground shrink-0'}>
-                {n.status === 'sent' ? 'مُرسَل' : 'مسودة'}
+              <Badge className={notification.status === 'sent' ? 'shrink-0 bg-success/10 text-success' : 'shrink-0 bg-muted text-muted-foreground'}>
+                {notification.status === 'sent' ? 'مرسل' : 'جزئي'}
               </Badge>
             </div>
           ))
@@ -229,5 +266,3 @@ export default function Notifications() {
     </div>
   );
 }
-
-

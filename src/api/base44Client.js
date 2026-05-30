@@ -211,6 +211,22 @@ const integrations = {
       }
       return data;
     },
+    sendNotification: async ({ storeId, customerId, title, message }) => {
+      const { data, error } = await supabase.functions.invoke('google-wallet-send-notification', {
+        body: { storeId, customerId, title, message },
+      });
+      if (error) {
+        if (error.context?.json) {
+          const details = await error.context.json().catch(() => null);
+          throw new Error(details?.error
+            ? `${details.error}${details.failed ? `: فشل ${details.failed} بطاقة` : ''}`
+            : error.message);
+        }
+        throw error;
+      }
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
   },
 };
 
