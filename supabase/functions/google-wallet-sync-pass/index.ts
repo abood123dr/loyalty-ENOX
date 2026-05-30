@@ -51,6 +51,7 @@ const googleAccessToken = async (serviceAccount: Record<string, string>) => {
 };
 
 const safeId = (value: string) => String(value || 'item').replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 80);
+const colorKey = (value: string | null | undefined) => String(value || '#4b2a25').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 12);
 
 const googleImage = (uri: string, label: string) => ({
   sourceUri: { uri },
@@ -133,7 +134,7 @@ serve(async (req) => {
 
     const origin = origins[0]?.replace(/\/$/, '') || 'https://loyalty-enox.vercel.app';
     const total = store.stamps_required || 10;
-    const defaultClassId = `${issuerId}.store_${safeId(store.id)}`;
+    const defaultClassId = `${issuerId}.store_${safeId(store.id)}_${colorKey(store.card_bg_color)}`;
     const imageVersion = `${store.updated_at || Date.now()}-${Date.now()}`;
     const logoUrl = withVersion(store.card_logo_url || store.logo_url || `${origin}/wallet/stamp-tiers/preview.png`, imageVersion);
     const classImageUrl = store.stamp_strip_url?.includes('{stamp}')
@@ -174,13 +175,19 @@ serve(async (req) => {
       const cardUrl = `${origin}/card/${customer.id}`;
       const customerHeroUrl = withVersion(stampTierImage(origin, current, total, store.stamp_strip_url), `${imageVersion}-${customer.id}-${current}`);
       const existingObject = await walletRequest(`loyaltyObject/${encodeURIComponent(customer.google_wallet_object_id)}`, token);
-      const classId = String(existingObject.body?.classId || defaultClassId);
+      const classId = defaultClassId;
 
       if (!patchedClasses.has(classId)) {
-        const classResponse = await walletRequest(`loyaltyClass/${encodeURIComponent(classId)}`, token, {
-          method: 'PATCH',
-          body: JSON.stringify(classPayload()),
-        });
+        const existingClass = await walletRequest(`loyaltyClass/${encodeURIComponent(classId)}`, token);
+        const classResponse = existingClass.status === 404
+          ? await walletRequest('loyaltyClass', token, {
+            method: 'POST',
+            body: JSON.stringify({ id: classId, reviewStatus: 'UNDER_REVIEW', ...classPayload() }),
+          })
+          : await walletRequest(`loyaltyClass/${encodeURIComponent(classId)}`, token, {
+            method: 'PATCH',
+            body: JSON.stringify(classPayload()),
+          });
         if (!classResponse.ok) {
           classFailures.push({ classId, details: classResponse.body });
         }
@@ -188,6 +195,7 @@ serve(async (req) => {
       }
 
       const objectPayload: Record<string, unknown> = {
+        classId,
         loyaltyPoints: {
           label: 'Stamps',
           balance: { int: current },

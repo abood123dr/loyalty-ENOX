@@ -39,6 +39,7 @@ const signJwt = async (claims: Record<string, unknown>, privateKeyPem: string) =
 };
 
 const safeId = (value: string) => String(value || 'item').replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 80);
+const colorKey = (value: string | null | undefined) => String(value || '#4b2a25').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 12);
 
 const googleAccessToken = async (serviceAccount: Record<string, string>) => {
   const now = Math.floor(Date.now() / 1000);
@@ -155,7 +156,7 @@ serve(async (req) => {
 
     const origin = origins[0]?.replace(/\/$/, '') || 'https://loyalty-enox.vercel.app';
     const cardUrl = `${origin}/card/${customer.id}`;
-    const classId = `${issuerId}.store_${safeId(store.id)}`;
+    const classId = `${issuerId}.store_${safeId(store.id)}_${colorKey(store.card_bg_color)}`;
     const generatedObjectId = `${issuerId}.customer_${safeId(customer.id.replaceAll('-', ''))}`;
     const objectId = String(customer.google_wallet_object_id || '').startsWith(`${issuerId}.`)
       ? customer.google_wallet_object_id
@@ -270,7 +271,7 @@ serve(async (req) => {
         return Response.json({ error: 'Google Wallet object creation failed', details: createdObject.body }, { status: 502, headers: corsHeaders });
       }
     } else if (existingObject.ok) {
-      loyaltyObject.classId = existingObject.body?.classId || classId;
+      loyaltyObject.classId = classId;
       await walletRequest(`loyaltyObject/${encodeURIComponent(objectId)}`, accessToken, {
         method: 'PATCH',
         body: JSON.stringify(loyaltyObject),
