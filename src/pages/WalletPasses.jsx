@@ -40,7 +40,7 @@ export default function WalletPasses() {
 
   const createWebCardMutation = useMutation({
     mutationFn: async (customer) => {
-      const url = `${window.location.origin}/card/${customer.id}`;
+      const url = `${window.location.origin}/card/${currentStore.slug}/${customer.id}`;
       await db.entities.StoreCustomer.update(customer.id, {
         wallet_pass_url: url,
         wallet_type: 'web',
@@ -264,7 +264,7 @@ export default function WalletPasses() {
           customers.slice(0, 100).map((customer) => {
             const url = customer.wallet_pass_url?.includes('/card/')
               ? customer.wallet_pass_url
-              : `${window.location.origin}/card/${customer.id}`;
+              : `${window.location.origin}/card/${currentStore?.slug || 'store'}/${customer.id}`;
             const hasWebCard = customer.wallet_type === 'web' || customer.wallet_pass_url?.includes('/card/');
 
             return (

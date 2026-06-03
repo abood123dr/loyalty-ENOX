@@ -81,7 +81,7 @@ export default function StoreRegister() {
       wallet_type: 'web',
       is_active: true,
     };
-    const url = `${window.location.origin}/card/${customer.id}`;
+    const url = `${window.location.origin}/card/${store.slug}/${customer.id}`;
     customer.wallet_pass_url = url;
 
     try {

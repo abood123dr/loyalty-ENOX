@@ -8,14 +8,14 @@ import { Button } from '@/components/ui/button';
 import DigitalStampCard from '@/components/wallet/DigitalStampCard';
 
 export default function CustomerDigitalCard() {
-  const { customerId } = useParams();
+  const { storeSlug, customerId } = useParams();
   const [walletError, setWalletError] = React.useState('');
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['customer-digital-card', customerId],
     queryFn: async () => {
       const { data: cardData, error: cardError } = await supabase.functions.invoke('customer-card-data', {
-        body: { customerId },
+        body: { customerId, storeSlug },
       });
       if (cardError) throw cardError;
       if (cardData?.error) throw new Error(cardData.error);
@@ -83,7 +83,7 @@ export default function CustomerDigitalCard() {
           </Button>
         </div>
 
-        <DigitalStampCard store={store} customer={customer} value={`${window.location.origin}/card/${customer.id}`} />
+        <DigitalStampCard store={store} customer={customer} value={`${window.location.origin}/card/${store.slug}/${customer.id}`} />
 
         <Button
           className="mt-5 w-full gap-2 bg-white text-neutral-950 hover:bg-white/90"

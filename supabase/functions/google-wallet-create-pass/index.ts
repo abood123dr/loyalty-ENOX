@@ -169,7 +169,7 @@ serve(async (req) => {
     if (customerError) throw customerError;
 
     const origin = origins[0]?.replace(/\/$/, '') || 'https://loyalty-enox.vercel.app';
-    const cardUrl = `${origin}/card/${customer.id}`;
+    const cardUrl = `${origin}/card/${store.slug}/${customer.id}`;
     const classId = `${issuerId}.store_${safeId(store.id)}_${colorKey(store.card_bg_color)}`;
     const generatedObjectId = `${issuerId}.customer_${safeId(customer.id.replaceAll('-', ''))}`;
     const objectId = String(customer.google_wallet_object_id || '').startsWith(`${issuerId}.`)

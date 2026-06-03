@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { customerId } = await req.json();
+    const { customerId, storeSlug } = await req.json();
 
     if (!customerId) {
       return Response.json({ error: 'customerId is required' }, { status: 400, headers: corsHeaders });
@@ -68,7 +68,7 @@ serve(async (req) => {
       .eq('id', customer.store_id)
       .single();
 
-    if (storeError || !store?.is_active) {
+    if (storeError || !store?.is_active || (storeSlug && store.slug !== storeSlug)) {
       return Response.json({ error: 'Store not found' }, { status: 404, headers: corsHeaders });
     }
 

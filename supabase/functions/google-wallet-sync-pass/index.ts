@@ -194,7 +194,7 @@ serve(async (req) => {
       }
 
       const current = customer.current_stamps || 0;
-      const cardUrl = `${origin}/card/${customer.id}`;
+      const cardUrl = `${origin}/card/${store.slug}/${customer.id}`;
       const customerHeroUrl = withVersion(stampTierImage(origin, current, total, store.stamp_strip_url), `${imageVersion}-${customer.id}-${current}`);
       const existingObject = await walletRequest(`loyaltyObject/${encodeURIComponent(customer.google_wallet_object_id)}`, token);
       const classId = defaultClassId;

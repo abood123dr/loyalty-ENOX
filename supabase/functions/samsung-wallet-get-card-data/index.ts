@@ -59,14 +59,14 @@ serve(async (req) => {
 
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id,name,description,stamps_required,reward_description,card_bg_color,card_text_color,logo_url,card_logo_url,updated_at')
+      .select('id,name,slug,description,stamps_required,reward_description,card_bg_color,card_text_color,logo_url,card_logo_url,updated_at')
       .eq('id', customer.store_id)
       .single();
     if (storeError) throw storeError;
 
     const total = Number(store.stamps_required || 10);
     const current = Number(customer.current_stamps || 0);
-    const cardUrl = `${APP_ORIGIN}/card/${customer.id}`;
+    const cardUrl = `${APP_ORIGIN}/card/${store.slug}/${customer.id}`;
     const createdAt = new Date(customer.created_at || Date.now()).getTime();
     const updatedAt = new Date(customer.updated_at || store.updated_at || Date.now()).getTime();
 

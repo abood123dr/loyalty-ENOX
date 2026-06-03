@@ -83,7 +83,7 @@ export default function QrScanner() {
   const searchMutation = useMutation({
     mutationFn: async (input) => {
       const value = extractQrValue(input);
-      const cardMatch = value.match(/\/card\/([0-9a-fA-F-]{36})/) || value.match(/^([0-9a-fA-F-]{36})$/);
+      const cardMatch = value.match(/\/card\/(?:[^/]+\/)?([0-9a-fA-F-]{36})/) || value.match(/^([0-9a-fA-F-]{36})$/);
 
       if (cardMatch?.[1]) {
         const customer = await db.entities.StoreCustomer.get(cardMatch[1]);

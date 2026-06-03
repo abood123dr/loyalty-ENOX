@@ -39,9 +39,9 @@ const formatDate = (value) => {
   }).format(new Date(value));
 };
 
-const getCardUrl = (customer) => {
+const getCardUrl = (customer, store) => {
   if (customer.wallet_pass_url) return customer.wallet_pass_url;
-  return `${window.location.origin}/card/${customer.id}`;
+  return `${window.location.origin}/card/${store?.slug || 'store'}/${customer.id}`;
 };
 
 function SummaryCard({ title, value, sub, icon: Icon, tone = 'primary' }) {
@@ -221,11 +221,11 @@ export default function Customers() {
   }, [customers, stampsRequired]);
 
   const openCard = (customer) => {
-    window.open(getCardUrl(customer), '_blank', 'noopener,noreferrer');
+    window.open(getCardUrl(customer, currentStore), '_blank', 'noopener,noreferrer');
   };
 
   const copyCardLink = async (customer) => {
-    await navigator.clipboard?.writeText(getCardUrl(customer));
+    await navigator.clipboard?.writeText(getCardUrl(customer, currentStore));
   };
 
   const handleSelectCustomer = (customer) => {

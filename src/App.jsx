@@ -71,6 +71,7 @@ const AuthenticatedApp = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/store/:slug" element={<StoreRegister />} />
+          <Route path="/card/:storeSlug/:customerId" element={<CustomerDigitalCard />} />
           <Route path="/card/:customerId" element={<CustomerDigitalCard />} />
 
           {/* Protected Dashboard Routes */}
