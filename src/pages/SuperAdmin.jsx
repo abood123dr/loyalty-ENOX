@@ -7,7 +7,7 @@ import { useStore } from '@/lib/useStore';
 import { motion } from 'framer-motion';
 import {
   Shield, Building2, Plus, MoreHorizontal, CheckCircle, XCircle, Lock, Search,
-  Edit, Trash2, Crown, Star, Globe, UserPlus, Palette, Save, Stamp, Wand2
+  Edit, Trash2, Crown, Star, Globe, UserPlus, Palette, Save, Stamp, Wand2, Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

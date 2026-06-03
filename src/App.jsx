@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
@@ -9,6 +9,8 @@ import { StoreProvider } from '@/lib/StoreContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
+import AppErrorBoundary from '@/components/AppErrorBoundary';
+import SuperAdminRoute from '@/components/SuperAdminRoute';
 
 const Login = lazy(() => import('@/pages/Login'));
 const Register = lazy(() => import('@/pages/Register'));
@@ -40,7 +42,8 @@ const RouteLoader = () => (
 );
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
+  const location = useLocation();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -57,14 +60,14 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
+      return <Navigate to="/login" replace />;
     }
   }
 
   return (
     <StoreProvider>
-      <Suspense fallback={<RouteLoader />}>
+      <AppErrorBoundary resetKey={location.pathname}>
+        <Suspense fallback={<RouteLoader />}>
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
@@ -92,14 +95,15 @@ const AuthenticatedApp = () => {
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/ai-assistant" element={<AIAssistant />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/super-admin" element={<SuperAdmin />} />
+              <Route path="/super-admin" element={<SuperAdminRoute><SuperAdmin /></SuperAdminRoute>} />
               <Route path="/stores" element={<Navigate to="/super-admin" replace />} />
             </Route>
           </Route>
 
           <Route path="*" element={<PageNotFound />} />
         </Routes>
-      </Suspense>
+        </Suspense>
+      </AppErrorBoundary>
     </StoreProvider>
   );
 };

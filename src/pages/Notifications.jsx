@@ -3,7 +3,7 @@ import db from '@/api/base44Client';
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Bell, MapPin, Navigation, Plus, Send, Wallet } from 'lucide-react';
+import { Bell, Building2, MapPin, Navigation, Plus, Send, Wallet } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { useStore } from '@/lib/useStore';
 
 export default function Notifications() {
-  const { currentStore, reloadStores } = useStore();
+  const { currentStore, allStores, isSuperAdmin, reloadStores, switchStore } = useStore();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ title: '', message: '', targetMode: 'all', customerId: '' });
@@ -38,6 +38,10 @@ export default function Notifications() {
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
+      if (!currentStore?.id) {
+        throw new Error('Select a store before sending Google Wallet notifications.');
+      }
+
       const walletResult = await db.integrations.GoogleWallet.sendNotification({
         storeId: currentStore.id,
         customerId: data.targetMode === 'customer' ? data.customerId : undefined,
@@ -75,12 +79,19 @@ export default function Notifications() {
   });
 
   const updateGeofenceMutation = useMutation({
-    mutationFn: (data) => db.entities.Store.update(currentStore.id, data),
+    mutationFn: (data) => {
+      if (!currentStore?.id) {
+        throw new Error('Select a store before updating notification settings.');
+      }
+
+      return db.entities.Store.update(currentStore.id, data);
+    },
     onSuccess: reloadStores,
   });
 
   const geofenceEnabled = currentStore?.geofence_enabled || false;
   const walletCustomersCount = customers.filter((customer) => customer.google_wallet_object_id).length;
+  const hasStoreSelected = Boolean(currentStore?.id);
 
   return (
     <div className="space-y-6">
@@ -89,7 +100,7 @@ export default function Notifications() {
           <h2 className="text-2xl font-bold text-foreground">الإشعارات</h2>
           <p className="mt-1 text-sm text-muted-foreground">إرسال رسائل داخل Google Wallet للعملاء</p>
         </div>
-        {currentStore && (
+        {hasStoreSelected && (
           <Dialog open={showAdd} onOpenChange={setShowAdd}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90">
@@ -167,6 +178,42 @@ export default function Notifications() {
         )}
       </div>
 
+      {isSuperAdmin && !hasStoreSelected && (
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-700">
+                <Building2 className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber-900">Select a store to send notifications</p>
+                <p className="mt-1 text-sm text-amber-800">
+                  Google Wallet notifications and geofence settings are store-specific.
+                </p>
+              </div>
+            </div>
+            <Select
+              value=""
+              onValueChange={(storeId) => {
+                const store = allStores.find((item) => item.id === storeId);
+                if (store) switchStore(store);
+              }}
+            >
+              <SelectTrigger className="w-full bg-background sm:w-72">
+                <SelectValue placeholder="Choose store" />
+              </SelectTrigger>
+              <SelectContent>
+                {allStores.map((store) => (
+                  <SelectItem key={store.id} value={store.id}>
+                    {store.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
       {sendResult && (
         <div className={`whitespace-pre-wrap rounded-xl border p-3 text-sm ${
           sendResult.type === 'error'
@@ -179,7 +226,7 @@ export default function Notifications() {
         </div>
       )}
 
-      {currentStore && (
+      {hasStoreSelected && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl border border-border bg-card p-6">
           <div className="mb-4 flex items-center justify-between">
