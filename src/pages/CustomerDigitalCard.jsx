@@ -1,4 +1,4 @@
-import db from '@/api/base44Client';
+import db, { supabase } from '@/api/base44Client';
 
 import React from 'react';
 import { useParams } from 'react-router-dom';
@@ -14,9 +14,12 @@ export default function CustomerDigitalCard() {
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['customer-digital-card', customerId],
     queryFn: async () => {
-      const customer = await db.entities.StoreCustomer.get(customerId);
-      const store = await db.entities.Store.get(customer.store_id);
-      return { customer, store };
+      const { data: cardData, error: cardError } = await supabase.functions.invoke('customer-card-data', {
+        body: { customerId },
+      });
+      if (cardError) throw cardError;
+      if (cardData?.error) throw new Error(cardData.error);
+      return cardData;
     },
     enabled: Boolean(customerId),
   });

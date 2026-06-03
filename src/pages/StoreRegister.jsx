@@ -81,16 +81,12 @@ export default function StoreRegister() {
       wallet_type: 'web',
       is_active: true,
     };
+    const url = `${window.location.origin}/card/${customer.id}`;
+    customer.wallet_pass_url = url;
 
     try {
       const { error: insertError } = await supabase.from('store_customers').insert(customer);
       if (insertError) throw insertError;
-
-      const url = `${window.location.origin}/card/${customer.id}`;
-      await supabase
-        .from('store_customers')
-        .update({ wallet_pass_url: url, wallet_type: 'web' })
-        .eq('id', customer.id);
 
       setNewCustomer({ ...customer, wallet_pass_url: url });
       setCardUrl(url);
