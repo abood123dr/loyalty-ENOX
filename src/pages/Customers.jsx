@@ -68,13 +68,15 @@ function WalletBadges({ customer }) {
   const hasWeb = customer.wallet_type === 'web' || customer.wallet_pass_url?.includes('/card/');
   const hasGoogle = Boolean(customer.google_wallet_object_id);
   const hasSamsung = Boolean(customer.samsung_wallet_ref_id);
+  const hasApple = Boolean(customer.apple_wallet_serial_number);
 
   return (
     <div className="flex flex-wrap gap-1.5">
       {hasWeb && <Badge className="bg-primary/10 text-primary">Web</Badge>}
       {hasGoogle && <Badge className="bg-success/10 text-success">Google</Badge>}
       {hasSamsung && <Badge className="bg-sky-500/10 text-sky-700">Samsung</Badge>}
-      {!hasWeb && !hasGoogle && !hasSamsung && <Badge className="bg-muted text-muted-foreground">بدون بطاقة</Badge>}
+      {hasApple && <Badge className="bg-zinc-500/10 text-zinc-600">Apple</Badge>}
+      {!hasWeb && !hasGoogle && !hasSamsung && !hasApple && <Badge className="bg-muted text-muted-foreground">بدون بطاقة</Badge>}
     </div>
   );
 }
@@ -211,6 +213,7 @@ export default function Customers() {
       walletUsers: customers.filter((customer) => (
         customer.google_wallet_object_id
         || customer.samsung_wallet_ref_id
+        || customer.apple_wallet_serial_number
         || customer.wallet_pass_url
         || customer.wallet_type === 'web'
       )).length,
