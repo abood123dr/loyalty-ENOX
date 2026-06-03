@@ -1,30 +1,75 @@
-﻿import db from '@/api/base44Client';
+import db from '@/api/base44Client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import jsQR from 'jsqr';
 
 import { useStore } from '@/lib/useStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QrCode, Search, CheckCircle, Gift, Phone, Stamp } from 'lucide-react';
+import {
+  AlertCircle,
+  Camera,
+  CameraOff,
+  CheckCircle,
+  Gift,
+  Phone,
+  QrCode,
+  RotateCcw,
+  Search,
+  ScanLine,
+  Stamp,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
+const extractQrValue = (input) => input.trim();
+
+const getCameraErrorMessage = (error) => {
+  const name = error?.name || '';
+  const message = error?.message || '';
+
+  if (name === 'NotAllowedError' || message.includes('Permission denied')) {
+    return 'تم رفض صلاحية الكاميرا. اسمح للمتصفح باستخدام الكاميرا ثم حاول مرة أخرى.';
+  }
+  if (name === 'NotFoundError' || message.includes('Requested device not found')) {
+    return 'لم يتم العثور على كاميرا في هذا الجهاز. استخدم البحث اليدوي أو جرب جهازا آخر.';
+  }
+  if (name === 'NotReadableError') {
+    return 'الكاميرا مستخدمة من تطبيق آخر أو غير متاحة حاليا.';
+  }
+
+  return message || 'تعذر تشغيل الكاميرا. تأكد من السماح بالصلاحية.';
+};
+
 export default function QrScanner() {
-  const { currentStore } = useStore();
+  const { currentStore, allStores, isSuperAdmin, switchStore } = useStore();
   const queryClient = useQueryClient();
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const scanTimerRef = useRef(null);
+  const scanningRef = useRef(false);
+  const detectedRef = useRef('');
+
   const [searchPhone, setSearchPhone] = useState('');
   const [foundCustomer, setFoundCustomer] = useState(null);
-  const [scanResult, setScanResult] = useState(null); // 'stamped' | 'reward'
+  const [scanResult, setScanResult] = useState(null);
   const [searching, setSearching] = useState(false);
   const [syncError, setSyncError] = useState('');
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState('');
 
   const stampsRequired = currentStore?.stamps_required || 10;
+  const currentStamps = foundCustomer?.current_stamps || 0;
+  const nextScanIsReward = currentStamps + 1 >= stampsRequired;
 
   const searchMutation = useMutation({
     mutationFn: async (input) => {
-      const value = input.trim();
+      const value = extractQrValue(input);
       const cardMatch = value.match(/\/card\/([0-9a-fA-F-]{36})/) || value.match(/^([0-9a-fA-F-]{36})$/);
+
       if (cardMatch?.[1]) {
         const customer = await db.entities.StoreCustomer.get(cardMatch[1]);
         return customer?.store_id === currentStore?.id ? customer : null;
@@ -36,37 +81,140 @@ export default function QrScanner() {
       });
       return results[0] || null;
     },
-    onSuccess: (customer) => {
-      setFoundCustomer(customer);
+    onMutate: () => {
+      setSearching(true);
       setScanResult(null);
       setSyncError('');
     },
+    onSuccess: (customer) => {
+      setFoundCustomer(customer);
+      setSearching(false);
+    },
+    onError: () => {
+      setFoundCustomer(null);
+      setSearching(false);
+    },
   });
+
+  const stopCamera = () => {
+    scanningRef.current = false;
+    if (scanTimerRef.current) {
+      window.clearTimeout(scanTimerRef.current);
+      scanTimerRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+  };
+
+  useEffect(() => () => stopCamera(), []);
+
+  const runCameraScan = () => {
+    if (!scanningRef.current || !videoRef.current) return;
+
+    try {
+      if (videoRef.current.readyState >= 2) {
+        const canvas = canvasRef.current;
+        const context = canvas?.getContext('2d', { willReadFrequently: true });
+
+        if (!canvas || !context) {
+          throw new Error('تعذر تجهيز قارئ QR.');
+        }
+
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'dontInvert',
+        });
+        const value = code?.data;
+
+        if (value && value !== detectedRef.current) {
+          detectedRef.current = value;
+          setSearchPhone(value);
+          stopCamera();
+          searchMutation.mutate(value);
+          return;
+        }
+      }
+    } catch (error) {
+      setCameraError(error?.message || 'تعذر قراءة الكاميرا.');
+    }
+
+    scanTimerRef.current = window.setTimeout(runCameraScan, 450);
+  };
+
+  const startCamera = async () => {
+    setCameraError('');
+    detectedRef.current = '';
+
+    if (!currentStore) {
+      setCameraError('اختر متجر قبل تشغيل الكاميرا.');
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('المتصفح لا يدعم تشغيل الكاميرا. استخدم البحث اليدوي.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      scanningRef.current = true;
+      setCameraActive(true);
+      runCameraScan();
+    } catch (error) {
+      stopCamera();
+      setCameraError(getCameraErrorMessage(error));
+    }
+  };
 
   const stampMutation = useMutation({
     mutationFn: async ({ customer, isReward }) => {
       setSyncError('');
       const newStamps = isReward ? 0 : (customer.current_stamps || 0) + 1;
+
       await db.entities.StampScan.create({
         store_id: currentStore?.id,
         customer_id: customer.id,
         stamps_added: 1,
         is_reward: isReward,
       });
+
       await db.entities.StoreCustomer.update(customer.id, {
         current_stamps: newStamps,
         total_stamps_earned: (customer.total_stamps_earned || 0) + 1,
-        total_rewards_redeemed: isReward ? (customer.total_rewards_redeemed || 0) + 1 : customer.total_rewards_redeemed,
+        total_rewards_redeemed: isReward
+          ? (customer.total_rewards_redeemed || 0) + 1
+          : customer.total_rewards_redeemed,
         last_stamp_date: new Date().toISOString(),
       });
+
       if (customer.google_wallet_object_id) {
         try {
           await db.integrations.GoogleWallet.syncPass({
             storeId: currentStore.id,
             customerId: customer.id,
           });
-        } catch (err) {
-          setSyncError(err.message || 'تعذر تحديث Google Wallet.');
+        } catch (error) {
+          setSyncError(error.message || 'تعذر تحديث Google Wallet.');
         }
       }
 
@@ -87,152 +235,250 @@ export default function QrScanner() {
 
   const handleStamp = () => {
     if (!foundCustomer) return;
-    const nextStamps = (foundCustomer.current_stamps || 0) + 1;
-    const isReward = nextStamps >= stampsRequired;
-    stampMutation.mutate({ customer: foundCustomer, isReward });
+    stampMutation.mutate({ customer: foundCustomer, isReward: nextScanIsReward });
   };
 
   const handleReset = () => {
     setFoundCustomer(null);
     setScanResult(null);
     setSearchPhone('');
+    setSyncError('');
+    detectedRef.current = '';
   };
 
   if (!currentStore) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <QrCode className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-          <p className="text-muted-foreground">ط§ظ„ط±ط¬ط§ط، ط§ط®طھظٹط§ط± ظ…طھط¬ط± ط£ظˆظ„ط§ظ‹</p>
+      <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center text-center">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <QrCode className="h-8 w-8" />
         </div>
+        <h2 className="text-xl font-bold">اختر متجر للمسح</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          يجب تحديد متجر قبل البحث عن عميل أو إضافة طابع.
+        </p>
+        {isSuperAdmin && (
+          <Select
+            value=""
+            onValueChange={(storeId) => {
+              const store = allStores.find((item) => item.id === storeId);
+              if (store) switchStore(store);
+            }}
+          >
+            <SelectTrigger className="mt-5 w-full max-w-xs">
+              <SelectValue placeholder="اختر متجر" />
+            </SelectTrigger>
+            <SelectContent>
+              {allStores.map((store) => (
+                <SelectItem key={store.id} value={store.id}>
+                  {store.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-lg mx-auto">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">QR Scanner</h2>
-        <p className="text-sm text-muted-foreground mt-1">ظ…ط³ط­ ط¨ط·ط§ظ‚ط© ط§ظ„ط¹ظ…ظٹظ„ ظˆط¥ط¶ط§ظپط© ط·ط§ط¨ط¹</p>
-      </div>
-
-      {/* Search */}
-      <div className="bg-card border border-border rounded-2xl p-6">
-        <p className="text-sm font-medium mb-3">ط§ط¨ط­ط« ط¹ظ† ط§ظ„ط¹ظ…ظٹظ„ ط¨ط±ظ‚ظ… ط§ظ„ط¬ظˆط§ظ„</p>
-        <div className="flex gap-2">
-          <Input
-            placeholder="05XXXXXXXX"
-            value={searchPhone}
-            onChange={e => setSearchPhone(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            dir="ltr"
-            className="flex-1"
-          />
-          <Button onClick={handleSearch} disabled={searchMutation.isPending}>
-            <Search className="w-4 h-4" />
-          </Button>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+            <ScanLine className="h-3.5 w-3.5" />
+            {currentStore.name}
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">QR Scanner</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            امسح بطاقة العميل بالكاميرا أو ابحث برقم الجوال لإضافة طابع.
+          </p>
         </div>
-        {searchMutation.isSuccess && !foundCustomer && (
-          <p className="text-sm text-destructive mt-2">ظ„ظ… ظٹطھظ… ط¥ظٹط¬ط§ط¯ ط§ظ„ط¹ظ…ظٹظ„ ط¨ظ‡ط°ط§ ط§ظ„ط±ظ‚ظ…</p>
-        )}
+        <Button variant="outline" onClick={handleReset} className="gap-2">
+          <RotateCcw className="h-4 w-4" />
+          بحث جديد
+        </Button>
       </div>
 
-      {/* Customer Found */}
-      <AnimatePresence>
-        {foundCustomer && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="bg-card border border-border rounded-2xl overflow-hidden"
-          >
-            {/* Customer Info */}
-            <div className="p-6 border-b border-border">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary">
-                  {foundCustomer.full_name?.[0]}
-                </div>
-                <div>
-                  <p className="font-bold text-lg">{foundCustomer.full_name}</p>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1" dir="ltr">
-                    <Phone className="w-3.5 h-3.5" />{foundCustomer.phone}
-                  </p>
-                </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+        <div className="space-y-5">
+          <section className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div>
+                <h3 className="font-semibold">الكاميرا</h3>
+                <p className="text-xs text-muted-foreground">وجه الكاميرا إلى QR الموجود في بطاقة العميل.</p>
               </div>
+              <Button
+                variant={cameraActive ? 'destructive' : 'default'}
+                onClick={cameraActive ? stopCamera : startCamera}
+                className="gap-2"
+              >
+                {cameraActive ? <CameraOff className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
+                {cameraActive ? 'إيقاف' : 'تشغيل الكاميرا'}
+              </Button>
             </div>
 
-            {/* Stamps Progress */}
-            <div className="p-6 border-b border-border">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-medium">ط§ظ„ط·ظˆط§ط¨ط¹ ط§ظ„ط­ط§ظ„ظٹط©</p>
-                <p className="text-2xl font-black text-primary">
-                  {foundCustomer.current_stamps || 0}
-                  <span className="text-sm text-muted-foreground font-normal">/{stampsRequired}</span>
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {Array.from({ length: stampsRequired }).map((_, i) => (
-                  <div key={i} className={cn(
-                    'w-10 h-10 rounded-xl border-2 flex items-center justify-center text-sm font-bold transition-all',
-                    i < (foundCustomer.current_stamps || 0)
-                      ? 'bg-primary border-primary text-primary-foreground shadow-sm'
-                      : 'border-border bg-muted text-muted-foreground'
-                  )}>
-                    {i < (foundCustomer.current_stamps || 0) ? 'âœ“' : i + 1}
+            <div className="p-5">
+              <div className="relative aspect-video overflow-hidden rounded-2xl bg-neutral-950">
+                <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
+                <canvas ref={canvasRef} className="hidden" />
+                {!cameraActive && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white/70">
+                    <QrCode className="mb-3 h-12 w-12" />
+                    <p className="text-sm">اضغط تشغيل الكاميرا للبدء</p>
                   </div>
-                ))}
+                )}
+                {cameraActive && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <div className="h-52 w-52 rounded-3xl border-2 border-white/80 shadow-[0_0_0_999px_rgba(0,0,0,0.28)]" />
+                  </div>
+                )}
               </div>
-              {(foundCustomer.current_stamps || 0) >= stampsRequired - 1 && (
-                <div className="mt-4 p-3 bg-success/10 border border-success/20 rounded-xl flex items-center gap-2">
-                  <Gift className="w-4 h-4 text-success" />
-                  <p className="text-sm text-success font-medium">
-                    {(foundCustomer.current_stamps || 0) >= stampsRequired
-                      ? 'ط§ظ„ط¨ط·ط§ظ‚ط© ظ…ظƒطھظ…ظ„ط©! ظٹط³طھط­ظ‚ ط§ظ„ظ…ظƒط§ظپط£ط©'
-                      : 'ط·ط§ط¨ط¹ ظˆط§ط­ط¯ ظ…طھط¨ظ‚ظچ ظ„ظ„ظ…ظƒط§ظپط£ط©!'}
+
+              {cameraError && (
+                <div className="mt-4 flex gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{cameraError}</span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-border bg-card p-5">
+            <div className="mb-4">
+              <h3 className="font-semibold">بحث يدوي</h3>
+              <p className="text-xs text-muted-foreground">اكتب رقم الجوال أو الصق رابط/كود بطاقة العميل.</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <Input
+                placeholder="05XXXXXXXX أو رابط البطاقة"
+                value={searchPhone}
+                onChange={(event) => setSearchPhone(event.target.value)}
+                onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
+                dir="ltr"
+                className="h-11"
+              />
+              <Button onClick={handleSearch} disabled={searchMutation.isPending || !searchPhone.trim()} className="h-11 gap-2">
+                <Search className="h-4 w-4" />
+                بحث
+              </Button>
+            </div>
+            {searchMutation.isSuccess && !foundCustomer && !searching && (
+              <p className="mt-3 text-sm text-destructive">لم يتم العثور على عميل مطابق داخل هذا المتجر.</p>
+            )}
+          </section>
+        </div>
+
+        <AnimatePresence mode="wait">
+          {foundCustomer ? (
+            <motion.section
+              key="customer"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="overflow-hidden rounded-2xl border border-border bg-card"
+            >
+              <div className="border-b border-border p-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-bold text-primary">
+                    {foundCustomer.full_name?.[0] || 'ع'}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-lg font-bold">{foundCustomer.full_name || 'عميل بدون اسم'}</p>
+                    <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground" dir="ltr">
+                      <Phone className="h-3.5 w-3.5" />
+                      {foundCustomer.phone || 'No phone'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-b border-border p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <p className="text-sm font-medium">الطوابع الحالية</p>
+                  <p className="text-2xl font-black text-primary">
+                    {currentStamps}
+                    <span className="text-sm font-normal text-muted-foreground">/{stampsRequired}</span>
                   </p>
                 </div>
-              )}
-            </div>
-
-            {/* Action */}
-            <div className="p-6">
-              {scanResult === 'stamped' && (
-                <div className="flex items-center gap-2 text-success mb-4">
-                  <CheckCircle className="w-5 h-5" />
-                  <p className="font-medium">طھظ… ط¥ط¶ط§ظپط© ط§ظ„ط·ط§ط¨ط¹ ط¨ظ†ط¬ط§ط­!</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {Array.from({ length: stampsRequired }).map((_, index) => {
+                    const filled = index < currentStamps;
+                    return (
+                      <div
+                        key={index}
+                        className={cn(
+                          'flex aspect-square min-h-10 items-center justify-center rounded-xl border text-sm font-bold transition-all',
+                          filled
+                            ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                            : 'border-border bg-muted text-muted-foreground'
+                        )}
+                      >
+                        {filled ? '✓' : index + 1}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-              {scanResult === 'reward' && (
-                <div className="flex items-center gap-2 text-warning mb-4">
-                  <Gift className="w-5 h-5" />
-                  <p className="font-medium">ًںژ‰ طھظ…طھ ط§ظ„ظ…ظƒط§ظپط£ط©! طھظ… ط¥ط¹ط§ط¯ط© ط§ظ„ط¨ط·ط§ظ‚ط©</p>
-                </div>
-              )}
-
-              {syncError && (
-                <div className="mb-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive break-words" dir="ltr">
-                  {syncError}
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <Button
-                  className="flex-1 bg-primary hover:bg-primary/90"
-                  onClick={handleStamp}
-                  disabled={stampMutation.isPending}
-                >
-                  <Stamp className="w-4 h-4 ml-2" />
-                  {stampMutation.isPending ? 'ط¬ط§ط±ظٹ...' : 'ط¥ط¶ط§ظپط© ط·ط§ط¨ط¹'}
-                </Button>
-                <Button variant="outline" onClick={handleReset}>ط¨ط­ط« ط¬ط¯ظٹط¯</Button>
+                {currentStamps >= stampsRequired - 1 && (
+                  <div className="mt-4 flex items-center gap-2 rounded-xl border border-success/20 bg-success/10 p-3">
+                    <Gift className="h-4 w-4 text-success" />
+                    <p className="text-sm font-medium text-success">
+                      {currentStamps >= stampsRequired ? 'البطاقة مكتملة ويستحق العميل المكافأة.' : 'طابع واحد متبق للمكافأة.'}
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+              <div className="p-5">
+                {scanResult === 'stamped' && (
+                  <div className="mb-4 flex items-center gap-2 text-success">
+                    <CheckCircle className="h-5 w-5" />
+                    <p className="font-medium">تمت إضافة الطابع بنجاح.</p>
+                  </div>
+                )}
+                {scanResult === 'reward' && (
+                  <div className="mb-4 flex items-center gap-2 text-warning">
+                    <Gift className="h-5 w-5" />
+                    <p className="font-medium">تمت المكافأة وإعادة البطاقة للصفر.</p>
+                  </div>
+                )}
+                {syncError && (
+                  <div className="mb-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive" dir="ltr">
+                    {syncError}
+                  </div>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                  <Button
+                    className="gap-2 bg-primary hover:bg-primary/90"
+                    onClick={handleStamp}
+                    disabled={stampMutation.isPending}
+                  >
+                    <Stamp className="h-4 w-4" />
+                    {stampMutation.isPending ? 'جاري الإضافة...' : nextScanIsReward ? 'منح المكافأة' : 'إضافة طابع'}
+                  </Button>
+                  <Button variant="outline" onClick={handleReset}>بحث جديد</Button>
+                </div>
+              </div>
+            </motion.section>
+          ) : (
+            <motion.section
+              key="empty"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/60 p-8 text-center"
+            >
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <ScanLine className="h-8 w-8" />
+              </div>
+              <h3 className="text-lg font-bold">بانتظار المسح</h3>
+              <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+                شغل الكاميرا وامسح QR البطاقة، أو ابحث يدويا برقم الجوال.
+              </p>
+            </motion.section>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
-
-
-
