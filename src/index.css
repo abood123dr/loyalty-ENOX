@@ -4,6 +4,13 @@
 @tailwind components;
 @tailwind utilities;
 
+.leaflet-container,
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 0;
+}
+
 @layer base {
   :root {
     --font-arabic: 'IBM Plex Sans Arabic', sans-serif;

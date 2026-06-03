@@ -82,7 +82,7 @@ function GeofenceMapPicker({ store, onUpdate, isPending }) {
           center={[center.latitude, center.longitude]}
           zoom={15}
           scrollWheelZoom
-          className="h-72 w-full"
+          className="z-0 h-72 w-full"
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
