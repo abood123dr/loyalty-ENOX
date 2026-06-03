@@ -216,13 +216,13 @@ function StoreForm({ form, setForm, submitLabel, isPending, onSubmit }) {
       <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
         <div>
           <p className="text-sm font-medium">المحافظ الرقمية لهذا المتجر</p>
-          <p className="text-xs text-muted-foreground">التصميم يعمل الآن على بطاقة الويب و Google Wallet. Apple Wallet و Samsung Wallet سيتم إضافتهم لاحقاً.</p>
+          <p className="text-xs text-muted-foreground">التصميم يعمل الآن على بطاقة الويب وGoogle Wallet وSamsung Wallet.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge className="bg-success/10 text-success border-success/20" variant="outline">Web Card مفعل</Badge>
           <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20" variant="outline">Google Wallet متاح</Badge>
           <Badge className="bg-muted text-muted-foreground" variant="outline">Apple Wallet لاحقاً</Badge>
-          <Badge className="bg-muted text-muted-foreground" variant="outline">Samsung Wallet لاحقاً</Badge>
+          <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20" variant="outline">Samsung Wallet متاح</Badge>
         </div>
       </div>
 

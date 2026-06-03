@@ -12,7 +12,7 @@ const integrations = [
   { name: 'WhatsApp API', description: 'رسائل واتساب تجارية', status: 'connected', category: 'تواصل' },
   { name: 'Google Wallet', description: 'بطاقات Google Wallet للطوابع', status: 'connected', category: 'محفظة' },
   { name: 'Apple Wallet', description: 'سيتم ربطها لاحقاً بشكل مباشر', status: 'available', category: 'محفظة' },
-  { name: 'Samsung Wallet', description: 'سيتم ربطها لاحقاً بشكل مباشر', status: 'available', category: 'محفظة' },
+  { name: 'Samsung Wallet', description: 'بطاقات Samsung Wallet للطوابع عبر رابط إضافة مباشر', status: 'connected', category: 'محفظة' },
   { name: 'Google Maps', description: 'خرائط ومواقع الفروع', status: 'connected', category: 'خرائط' },
   { name: 'Google Reviews', description: 'تقييمات جوجل', status: 'available', category: 'تقييم' },
   { name: 'Zapier', description: 'أتمتة وربط التطبيقات', status: 'available', category: 'أتمتة' },

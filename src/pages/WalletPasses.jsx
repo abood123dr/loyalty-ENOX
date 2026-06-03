@@ -84,13 +84,19 @@ export default function WalletPasses() {
   };
 
   const webCount = customers.filter((c) => c.wallet_type === 'web' || c.wallet_pass_url?.includes('/card/')).length;
-  const withoutCard = customers.length - webCount;
+  const samsungCount = customers.filter((c) => c.wallet_type === 'samsung' || c.samsung_wallet_ref_id).length;
+  const withoutCard = customers.filter((c) => (
+    !c.wallet_pass_url?.includes('/card/')
+    && !c.google_wallet_object_id
+    && !c.samsung_wallet_ref_id
+    && (!c.wallet_type || c.wallet_type === 'none')
+  )).length;
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground">البطاقات الرقمية</h2>
-        <p className="mt-1 text-sm text-muted-foreground">بطاقات طوابع داخلية مع دعم Google Wallet، وApple Wallet وSamsung Wallet لاحقاً.</p>
+        <p className="mt-1 text-sm text-muted-foreground">بطاقات طوابع داخلية مع دعم Google Wallet وSamsung Wallet.</p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" disabled={!currentStore || syncGoogleWalletMutation.isPending} onClick={() => syncGoogleWalletMutation.mutate()}>
@@ -116,7 +122,7 @@ export default function WalletPasses() {
         <div>
           <p className="mb-1 text-sm font-semibold">النظام الجديد</p>
           <p className="text-sm text-muted-foreground">
-            هذه البطاقات تعمل كرابط ويب مباشر لكل عميل. الكاشير يضيف الطوابع من النظام، والعميل يشاهد تحديث البطاقة مباشرة. Google Wallet متاح الآن، وApple Wallet وSamsung Wallet سيتم إضافتهم في المرحلة التالية.
+            بطاقات الويب وGoogle Wallet وSamsung Wallet متاحة الآن. الكاشير يضيف الطوابع من النظام، والعميل يشاهد تحديث البطاقة مباشرة.
           </p>
         </div>
       </motion.div>
@@ -124,6 +130,7 @@ export default function WalletPasses() {
       <div className="grid grid-cols-2 gap-4">
         {[
           { label: 'بطاقات داخلية', count: webCount, icon: MonitorSmartphone },
+          { label: 'Samsung Wallet', count: samsungCount, icon: Wallet },
           { label: 'بدون بطاقة', count: withoutCard, icon: Wallet },
         ].map((stat, index) => (
           <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.06 }} className="rounded-2xl border border-border bg-card p-5">

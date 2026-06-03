@@ -55,6 +55,8 @@ create table if not exists public.store_customers (
   wallet_pass_url text,
   google_wallet_object_id text,
   google_wallet_save_url text,
+  samsung_wallet_ref_id text,
+  samsung_wallet_save_url text,
   wallet_type text default 'none',
   is_active boolean default true,
   notes text,

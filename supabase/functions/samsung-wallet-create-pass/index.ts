@@ -43,6 +43,15 @@ serve(async (req) => {
     const refId = refIdForCustomer(customer.id);
     const saveUrl = `https://a.swallet.link/atw/v3/${encodeURIComponent(SAMSUNG_CERTIFICATE_ID)}/${encodeURIComponent(SAMSUNG_CARD_ID)}#Clip?pdata=${encodeURIComponent(refId)}`;
 
+    await supabase
+      .from('store_customers')
+      .update({
+        samsung_wallet_ref_id: refId,
+        samsung_wallet_save_url: saveUrl,
+        wallet_type: 'samsung',
+      })
+      .eq('id', customer.id);
+
     return Response.json({
       saveUrl,
       refId,

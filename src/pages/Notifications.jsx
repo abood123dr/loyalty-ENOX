@@ -1,9 +1,11 @@
 import db from '@/api/base44Client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Bell, Building2, MapPin, Navigation, Plus, Send, Wallet } from 'lucide-react';
+import { Bell, Building2, LocateFixed, MapPin, Navigation, Plus, Send, Wallet } from 'lucide-react';
+import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +15,110 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useStore } from '@/lib/useStore';
+
+const DEFAULT_CENTER = { latitude: 24.7136, longitude: 46.6753 };
+
+function MapRecenter({ center }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView([center.latitude, center.longitude], map.getZoom(), { animate: true });
+  }, [center.latitude, center.longitude, map]);
+
+  return null;
+}
+
+function ClickableMap({ onPick }) {
+  useMapEvents({
+    click(event) {
+      onPick({
+        latitude: Number(event.latlng.lat.toFixed(6)),
+        longitude: Number(event.latlng.lng.toFixed(6)),
+      });
+    },
+  });
+
+  return null;
+}
+
+function GeofenceMapPicker({ store, onUpdate, isPending }) {
+  const [draft, setDraft] = useState({
+    latitude: Number(store?.latitude) || DEFAULT_CENTER.latitude,
+    longitude: Number(store?.longitude) || DEFAULT_CENTER.longitude,
+  });
+
+  useEffect(() => {
+    setDraft({
+      latitude: Number(store?.latitude) || DEFAULT_CENTER.latitude,
+      longitude: Number(store?.longitude) || DEFAULT_CENTER.longitude,
+    });
+  }, [store?.id, store?.latitude, store?.longitude]);
+
+  const center = useMemo(() => ({
+    latitude: Number.isFinite(draft.latitude) ? draft.latitude : DEFAULT_CENTER.latitude,
+    longitude: Number.isFinite(draft.longitude) ? draft.longitude : DEFAULT_CENTER.longitude,
+  }), [draft.latitude, draft.longitude]);
+
+  const saveLocation = (nextLocation) => {
+    setDraft(nextLocation);
+    onUpdate(nextLocation);
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition((position) => {
+      saveLocation({
+        latitude: Number(position.coords.latitude.toFixed(6)),
+        longitude: Number(position.coords.longitude.toFixed(6)),
+      });
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="overflow-hidden rounded-xl border border-border">
+        <MapContainer
+          center={[center.latitude, center.longitude]}
+          zoom={15}
+          scrollWheelZoom
+          className="h-72 w-full"
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <MapRecenter center={center} />
+          <ClickableMap onPick={saveLocation} />
+          <CircleMarker
+            center={[center.latitude, center.longitude]}
+            radius={9}
+            pathOptions={{
+              color: '#2563eb',
+              fillColor: '#2563eb',
+              fillOpacity: 0.75,
+              weight: 3,
+            }}
+          />
+        </MapContainer>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">
+        <span dir="ltr">{center.latitude}, {center.longitude}</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={useCurrentLocation}
+          disabled={isPending}
+        >
+          <LocateFixed className="h-4 w-4" />
+          موقعي الحالي
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function Notifications() {
   const { currentStore, allStores, isSuperAdmin, reloadStores, switchStore } = useStore();
@@ -253,15 +359,26 @@ export default function Notifications() {
                   <Label className="text-xs">خط العرض</Label>
                   <Input className="mt-1 text-sm" dir="ltr" placeholder="24.7136"
                     defaultValue={currentStore.latitude}
-                    onBlur={(event) => updateGeofenceMutation.mutate({ latitude: parseFloat(event.target.value) })} />
+                    onBlur={(event) => {
+                      const latitude = parseFloat(event.target.value);
+                      if (Number.isFinite(latitude)) updateGeofenceMutation.mutate({ latitude });
+                    }} />
                 </div>
                 <div>
                   <Label className="text-xs">خط الطول</Label>
                   <Input className="mt-1 text-sm" dir="ltr" placeholder="46.6753"
                     defaultValue={currentStore.longitude}
-                    onBlur={(event) => updateGeofenceMutation.mutate({ longitude: parseFloat(event.target.value) })} />
+                    onBlur={(event) => {
+                      const longitude = parseFloat(event.target.value);
+                      if (Number.isFinite(longitude)) updateGeofenceMutation.mutate({ longitude });
+                    }} />
                 </div>
               </div>
+              <GeofenceMapPicker
+                store={currentStore}
+                isPending={updateGeofenceMutation.isPending}
+                onUpdate={(location) => updateGeofenceMutation.mutate(location)}
+              />
               <div>
                 <Label className="text-xs">نطاق الإشعار بالمتر</Label>
                 <Input className="mt-1 text-sm" dir="ltr" type="number" placeholder="200"

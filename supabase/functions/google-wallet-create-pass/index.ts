@@ -114,6 +114,15 @@ const stampTierImage = (origin: string, current: number, total: number, template
   return `${origin}/wallet/stamp-tiers/stamp-${tier}.png`;
 };
 
+const merchantLocationsForStore = (store: Record<string, unknown>) => {
+  if (!store.geofence_enabled) return [];
+  const latitude = Number(store.latitude);
+  const longitude = Number(store.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return [];
+  return [{ latitude, longitude }];
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -146,7 +155,7 @@ serve(async (req) => {
 
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id,name,slug,updated_at,description,stamps_required,reward_description,card_bg_color,card_text_color,logo_url,card_logo_url,cover_url,stamp_strip_url')
+      .select('id,name,slug,updated_at,description,stamps_required,reward_description,card_bg_color,card_text_color,logo_url,card_logo_url,cover_url,stamp_strip_url,geofence_enabled,latitude,longitude,geofence_message')
       .eq('id', storeId)
       .single();
     if (storeError) throw storeError;
@@ -180,6 +189,7 @@ serve(async (req) => {
       : store.stamp_strip_url || `${origin}/wallet/stamp-tiers/stamp-0.png`;
     const classHeroUrl = withVersion(classImageUrl, imageVersion);
     const objectHeroUrl = withVersion(stampTierImage(origin, current, total, store.stamp_strip_url), `${imageVersion}-${customer.id}-${current}`);
+    const merchantLocations = merchantLocationsForStore(store);
 
     const loyaltyClass = {
       id: classId,
@@ -189,6 +199,7 @@ serve(async (req) => {
       programLogo: googleImage(logoUrl, `${store.name} logo`),
       wideProgramLogo: googleImage(logoUrl, `${store.name} logo`),
       hexBackgroundColor: store.card_bg_color || '#4b2a25',
+      ...(merchantLocations.length ? { merchantLocations } : {}),
       ...(classHeroUrl ? {
         heroImage: googleImage(classHeroUrl, `${store.name} stamp card`),
         imageModulesData: [
@@ -231,6 +242,11 @@ serve(async (req) => {
           header: 'Reward',
           body: store.reward_description || `Collect ${total} stamps to unlock your reward.`,
         },
+        ...(store.geofence_message ? [{
+          id: 'store_location',
+          header: 'Nearby reminder',
+          body: String(store.geofence_message).slice(0, 500),
+        }] : []),
       ],
       linksModuleData: {
         uris: [
@@ -250,6 +266,7 @@ serve(async (req) => {
           },
         ],
       } : {}),
+      ...(merchantLocations.length ? { merchantLocations } : {}),
     };
 
     const accessToken = await googleAccessToken(serviceAccount);
