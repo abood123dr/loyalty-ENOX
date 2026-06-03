@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Users, Stamp, Wallet, QrCode,
+  LayoutDashboard, Users, Wallet, QrCode,
   Bell, Settings, ChevronLeft, ChevronRight,
-  LogOut, Crown, Shield, BarChart3, Gift, Megaphone, MapPin, UserCog, Plug, Bot
+  LogOut, Crown, Shield, BarChart3, Megaphone, MapPin, UserCog, Bot
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -17,16 +17,12 @@ const storeMenuItems = [
   { icon: LayoutDashboard, label: 'لوحة التحكم', path: '/' },
   { icon: BarChart3, label: 'التحليلات', path: '/analytics' },
   { icon: Users, label: 'العملاء', path: '/customers' },
-  { icon: Stamp, label: 'بطاقات الطوابع', path: '/stamp-cards' },
-  { icon: Gift, label: 'المكافآت', path: '/rewards' },
   { icon: Megaphone, label: 'الحملات', path: '/campaigns' },
   { icon: MapPin, label: 'الفروع', path: '/branches' },
   { icon: UserCog, label: 'الموظفون', path: '/staff' },
   { icon: Wallet, label: 'البطاقات الرقمية', path: '/wallet-passes' },
   { icon: QrCode, label: 'QR Scanner', path: '/qr-scanner' },
-  { icon: QrCode, label: 'QR / NFC', path: '/qr-nfc' },
   { icon: Bell, label: 'الإشعارات', path: '/notifications' },
-  { icon: Plug, label: 'التكاملات', path: '/integrations' },
   { icon: Bot, label: 'المساعد الذكي', path: '/ai-assistant' },
   { icon: Settings, label: 'الإعدادات', path: '/settings' },
 ];

@@ -18,21 +18,17 @@ const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const Customers = lazy(() => import('@/pages/Customers'));
-const StampCards = lazy(() => import('@/pages/StampCards'));
 const WalletPasses = lazy(() => import('@/pages/WalletPasses'));
 const QrScanner = lazy(() => import('@/pages/QrScanner'));
-const QrNfc = lazy(() => import('@/pages/QrNfc'));
 const Notifications = lazy(() => import('@/pages/Notifications'));
 const Settings = lazy(() => import('@/pages/Settings'));
 const SuperAdmin = lazy(() => import('@/pages/SuperAdmin'));
 const StoreRegister = lazy(() => import('@/pages/StoreRegister'));
 const CustomerDigitalCard = lazy(() => import('@/pages/CustomerDigitalCard'));
 const Analytics = lazy(() => import('@/pages/Analytics'));
-const Rewards = lazy(() => import('@/pages/Rewards'));
 const Campaigns = lazy(() => import('@/pages/Campaigns'));
 const Branches = lazy(() => import('@/pages/Branches'));
 const Staff = lazy(() => import('@/pages/Staff'));
-const Integrations = lazy(() => import('@/pages/Integrations'));
 const AIAssistant = lazy(() => import('@/pages/AIAssistant'));
 
 const RouteLoader = () => (
@@ -83,16 +79,12 @@ const AuthenticatedApp = () => {
               <Route path="/" element={<Dashboard />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/customers" element={<Customers />} />
-              <Route path="/stamp-cards" element={<StampCards />} />
-              <Route path="/rewards" element={<Rewards />} />
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/branches" element={<Branches />} />
               <Route path="/staff" element={<Staff />} />
               <Route path="/wallet-passes" element={<WalletPasses />} />
               <Route path="/qr-scanner" element={<QrScanner />} />
-              <Route path="/qr-nfc" element={<QrNfc />} />
               <Route path="/notifications" element={<Notifications />} />
-              <Route path="/integrations" element={<Integrations />} />
               <Route path="/ai-assistant" element={<AIAssistant />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/super-admin" element={<SuperAdminRoute><SuperAdmin /></SuperAdminRoute>} />
