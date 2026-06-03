@@ -10,6 +10,7 @@ import {
   Copy,
   ExternalLink,
   Gift,
+  MessageSquare,
   MoreHorizontal,
   Phone,
   Plus,
@@ -85,6 +86,8 @@ export default function Customers() {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [form, setForm] = useState({ full_name: '', phone: '' });
+  const [notificationForm, setNotificationForm] = useState({ title: '', message: '' });
+  const [notificationResult, setNotificationResult] = useState(null);
 
   const storeFilter = currentStore?.id ? { store_id: currentStore.id } : undefined;
 
@@ -145,6 +148,50 @@ export default function Customers() {
     },
   });
 
+  const sendNotificationMutation = useMutation({
+    mutationFn: async ({ customer, title, message }) => {
+      if (!currentStore?.id) {
+        throw new Error('اختر متجر قبل إرسال الإشعار.');
+      }
+      if (!customer.google_wallet_object_id) {
+        throw new Error('هذا العميل لم يضف البطاقة إلى Google Wallet بعد.');
+      }
+
+      const walletResult = await db.integrations.GoogleWallet.sendNotification({
+        storeId: currentStore.id,
+        customerId: customer.id,
+        title,
+        message,
+      });
+
+      await db.entities.Notification.create({
+        store_id: currentStore.id,
+        title,
+        message,
+        type: 'google_wallet',
+        target: `customer:${customer.id}`,
+        sent_count: walletResult?.sent || 0,
+        status: walletResult?.failed ? 'partial' : 'sent',
+      });
+
+      return walletResult;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries(['notifications', currentStore?.id]);
+      setNotificationResult({
+        type: result?.failed ? 'warning' : 'success',
+        text: `تم إرسال الإشعار إلى ${result?.sent || 0} بطاقة.${result?.failed ? ` فشل ${result.failed}.` : ''}`,
+      });
+      setNotificationForm({ title: '', message: '' });
+    },
+    onError: (error) => {
+      setNotificationResult({
+        type: 'error',
+        text: error?.message || 'تعذر إرسال الإشعار.',
+      });
+    },
+  });
+
   const filtered = useMemo(() => {
     const value = search.trim().toLowerCase();
     if (!value) return customers;
@@ -176,6 +223,22 @@ export default function Customers() {
 
   const copyCardLink = async (customer) => {
     await navigator.clipboard?.writeText(getCardUrl(customer));
+  };
+
+  const handleSelectCustomer = (customer) => {
+    setSelectedCustomer(customer);
+    setNotificationForm({ title: '', message: '' });
+    setNotificationResult(null);
+  };
+
+  const handleSendCustomerNotification = () => {
+    if (!selectedCustomer || !notificationForm.title.trim() || !notificationForm.message.trim()) return;
+
+    sendNotificationMutation.mutate({
+      customer: selectedCustomer,
+      title: notificationForm.title.trim(),
+      message: notificationForm.message.trim(),
+    });
   };
 
   if (!currentStore) {
@@ -277,7 +340,7 @@ export default function Customers() {
                 transition={{ delay: index * 0.02 }}
                 className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-0 border-b border-border px-5 py-3.5 transition-colors last:border-0 hover:bg-muted/20"
               >
-                <button type="button" onClick={() => setSelectedCustomer(customer)} className="flex min-w-0 items-center gap-3 text-right">
+                <button type="button" onClick={() => handleSelectCustomer(customer)} className="flex min-w-0 items-center gap-3 text-right">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
                     {customer.full_name?.[0] || 'ع'}
                   </div>
@@ -311,7 +374,7 @@ export default function Customers() {
                     <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    <DropdownMenuItem onClick={() => setSelectedCustomer(customer)}>
+                    <DropdownMenuItem onClick={() => handleSelectCustomer(customer)}>
                       <UserCheck className="ml-2 h-4 w-4" />
                       عرض التفاصيل
                     </DropdownMenuItem>
@@ -394,9 +457,79 @@ export default function Customers() {
                     <Copy className="h-4 w-4" />
                     نسخ الرابط
                   </Button>
-                  <Button variant="outline" onClick={() => window.location.assign('/notifications')} className="gap-2">
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-border p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <MessageSquare className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">إرسال إشعار للعميل</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        يصل الإشعار داخل Google Wallet إذا كان العميل أضاف البطاقة.
+                      </p>
+                    </div>
+                  </div>
+
+                  {!selectedCustomer.google_wallet_object_id && (
+                    <div className="rounded-xl border border-warning/20 bg-warning/10 p-3 text-xs text-warning">
+                      هذا العميل لا يملك بطاقة Google Wallet حاليا. أضف له Google Wallet أولا من صفحة البطاقات الرقمية.
+                    </div>
+                  )}
+
+                  <div className="grid gap-3">
+                    <div>
+                      <Label>العنوان</Label>
+                      <Input
+                        className="mt-1"
+                        placeholder="مثال: عرض اليوم"
+                        value={notificationForm.title}
+                        onChange={(event) => {
+                          setNotificationForm({ ...notificationForm, title: event.target.value });
+                          setNotificationResult(null);
+                        }}
+                        disabled={!selectedCustomer.google_wallet_object_id || sendNotificationMutation.isPending}
+                      />
+                    </div>
+                    <div>
+                      <Label>الرسالة</Label>
+                      <Input
+                        className="mt-1"
+                        placeholder="مثال: خصم خاص بانتظارك اليوم"
+                        value={notificationForm.message}
+                        onChange={(event) => {
+                          setNotificationForm({ ...notificationForm, message: event.target.value });
+                          setNotificationResult(null);
+                        }}
+                        disabled={!selectedCustomer.google_wallet_object_id || sendNotificationMutation.isPending}
+                      />
+                    </div>
+                  </div>
+
+                  {notificationResult && (
+                    <div className={cn(
+                      'rounded-xl border p-3 text-xs',
+                      notificationResult.type === 'success' && 'border-success/20 bg-success/10 text-success',
+                      notificationResult.type === 'warning' && 'border-warning/20 bg-warning/10 text-warning',
+                      notificationResult.type === 'error' && 'border-destructive/20 bg-destructive/10 text-destructive',
+                    )}>
+                      {notificationResult.text}
+                    </div>
+                  )}
+
+                  <Button
+                    onClick={handleSendCustomerNotification}
+                    disabled={
+                      !selectedCustomer.google_wallet_object_id
+                      || !notificationForm.title.trim()
+                      || !notificationForm.message.trim()
+                      || sendNotificationMutation.isPending
+                    }
+                    className="w-full gap-2"
+                  >
                     <Send className="h-4 w-4" />
-                    إرسال إشعار
+                    {sendNotificationMutation.isPending ? 'جاري الإرسال...' : 'إرسال الإشعار'}
                   </Button>
                 </div>
 
