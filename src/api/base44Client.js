@@ -228,6 +228,22 @@ const integrations = {
       return data;
     },
   },
+  SamsungWallet: {
+    createPass: async ({ storeId, customerId }) => {
+      const { data, error } = await supabase.functions.invoke('samsung-wallet-create-pass', {
+        body: { storeId, customerId },
+      });
+      if (error) {
+        if (error.context?.json) {
+          const details = await error.context.json().catch(() => null);
+          throw new Error(details?.error || error.message);
+        }
+        throw error;
+      }
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+  },
 };
 
 export const db = { auth, entities, integrations };

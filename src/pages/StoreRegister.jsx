@@ -35,6 +35,18 @@ export default function StoreRegister() {
     onError: (err) => setWalletError(err.message || 'تعذر تجهيز Google Wallet'),
   });
 
+  const samsungWalletMutation = useMutation({
+    mutationFn: () => db.integrations.SamsungWallet.createPass({
+      storeId: store.id,
+      customerId: newCustomer.id,
+    }),
+    onSuccess: (result) => {
+      setWalletError('');
+      window.open(result.saveUrl, '_blank');
+    },
+    onError: (err) => setWalletError(err.message || 'تعذر تجهيز Samsung Wallet'),
+  });
+
   useEffect(() => {
     const loadStore = async () => {
       setLoading(true);
@@ -199,6 +211,15 @@ export default function StoreRegister() {
               >
                 <Wallet className="h-4 w-4" />
                 {googleWalletMutation.isPending ? 'جاري تجهيز Google Wallet...' : 'إضافة إلى Google Wallet'}
+              </Button>
+              <Button
+                className="w-full gap-2"
+                variant="outline"
+                disabled={!newCustomer || samsungWalletMutation.isPending}
+                onClick={() => samsungWalletMutation.mutate()}
+              >
+                <Wallet className="h-4 w-4" />
+                {samsungWalletMutation.isPending ? 'جاري تجهيز Samsung Wallet...' : 'إضافة إلى Samsung Wallet'}
               </Button>
               {walletError && (
                 <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">

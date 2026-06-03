@@ -53,6 +53,21 @@ export default function WalletPasses() {
     },
   });
 
+  const samsungWalletMutation = useMutation({
+    mutationFn: (customer) => db.integrations.SamsungWallet.createPass({
+      storeId: currentStore.id,
+      customerId: customer.id,
+    }),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ['store-customers', currentStore?.id] });
+      window.open(result.saveUrl, '_blank');
+      setMessage({ type: 'success', text: 'تم تجهيز رابط Samsung Wallet.' });
+    },
+    onError: (error) => {
+      setMessage({ type: 'error', text: error?.message || 'تعذر تجهيز Samsung Wallet.' });
+    },
+  });
+
   const syncGoogleWalletMutation = useMutation({
     mutationFn: () => db.integrations.GoogleWallet.syncPass({ storeId: currentStore.id }),
     onSuccess: (result) => {
@@ -156,6 +171,9 @@ export default function WalletPasses() {
                   </Button>
                   <Button variant="outline" size="sm" disabled={!currentStore || googleWalletMutation.isPending} onClick={() => googleWalletMutation.mutate(customer)}>
                     Google Wallet
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={!currentStore || samsungWalletMutation.isPending} onClick={() => samsungWalletMutation.mutate(customer)}>
+                    Samsung Wallet
                   </Button>
                   <Button variant="ghost" size="icon" onClick={() => copyLink(url)} title="نسخ الرابط">
                     <Copy className="h-4 w-4" />

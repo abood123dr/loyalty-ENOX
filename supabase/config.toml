@@ -1,0 +1,7 @@
+project_id = "wwoeusyaiqnklgnzdwmh"
+
+[functions.samsung-wallet-get-card-data]
+verify_jwt = false
+
+[functions.samsung-wallet-card-state]
+verify_jwt = false

@@ -3,7 +3,7 @@ import db from '@/api/base44Client';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Gift, Phone, RotateCw, Smartphone } from 'lucide-react';
+import { ArrowLeft, Gift, Phone, RotateCw, Smartphone, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DigitalStampCard from '@/components/wallet/DigitalStampCard';
 
@@ -31,6 +31,18 @@ export default function CustomerDigitalCard() {
       window.open(result.saveUrl, '_blank');
     },
     onError: (err) => setWalletError(err.message || 'تعذر إنشاء بطاقة Google Wallet'),
+  });
+
+  const samsungWalletMutation = useMutation({
+    mutationFn: () => db.integrations.SamsungWallet.createPass({
+      storeId: data.store.id,
+      customerId: data.customer.id,
+    }),
+    onSuccess: (result) => {
+      setWalletError('');
+      window.open(result.saveUrl, '_blank');
+    },
+    onError: (err) => setWalletError(err.message || 'تعذر تجهيز Samsung Wallet'),
   });
 
   if (isLoading) {
@@ -77,6 +89,15 @@ export default function CustomerDigitalCard() {
         >
           <Smartphone className="h-4 w-4" />
           {googleWalletMutation.isPending ? 'جاري تجهيز Google Wallet...' : 'Add to Google Wallet'}
+        </Button>
+        <Button
+          className="mt-3 w-full gap-2 border-white/20 text-white hover:bg-white/10 hover:text-white"
+          variant="outline"
+          onClick={() => samsungWalletMutation.mutate()}
+          disabled={samsungWalletMutation.isPending}
+        >
+          <Wallet className="h-4 w-4" />
+          {samsungWalletMutation.isPending ? 'جاري تجهيز Samsung Wallet...' : 'Add to Samsung Wallet'}
         </Button>
         {walletError && (
           <div className="mt-3 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-100">
