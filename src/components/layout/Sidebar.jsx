@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, Wallet, QrCode,
   Bell, Settings, ChevronLeft, ChevronRight,
-  LogOut, Crown, Shield, BarChart3, Megaphone, MapPin, UserCog, Bot
+  LogOut, Crown, Shield, BarChart3, Megaphone, MapPin, UserCog, Bot, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +31,7 @@ const superAdminItems = [
   { icon: Shield, label: 'إدارة المنصة', path: '/super-admin' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen = false, onMobileClose }) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { isSuperAdmin } = useStore();
@@ -41,7 +41,7 @@ export default function Sidebar() {
   const NavItem = ({ item, highlight = false }) => {
     const isActive = location.pathname === item.path;
     return (
-      <Link to={item.path}>
+      <Link to={item.path} onClick={onMobileClose}>
         <motion.div
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
@@ -75,11 +75,28 @@ export default function Sidebar() {
   };
 
   return (
-    <motion.aside
-      animate={{ width: collapsed ? 72 : 260 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="fixed right-0 top-0 h-screen bg-sidebar border-l border-sidebar-border z-40 flex flex-col overflow-hidden"
-    >
+    <>
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.button
+            type="button"
+            aria-label="Close sidebar"
+            className="fixed inset-0 z-40 bg-black/45 backdrop-blur-sm lg:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onMobileClose}
+          />
+        )}
+      </AnimatePresence>
+      <motion.aside
+        animate={{ width: collapsed ? 72 : 260 }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
+        className={cn(
+          'fixed right-0 top-0 z-50 flex h-screen flex-col overflow-hidden border-l border-sidebar-border bg-sidebar shadow-2xl transition-transform duration-300 lg:z-40 lg:translate-x-0 lg:shadow-none',
+          mobileOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
+        )}
+      >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-sidebar-border shrink-0">
         <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-md shadow-primary/30">
@@ -98,6 +115,14 @@ export default function Sidebar() {
             </motion.div>
           )}
         </AnimatePresence>
+        <button
+          type="button"
+          onClick={onMobileClose}
+          className="mr-auto flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-sidebar-accent lg:hidden"
+          aria-label="Close sidebar"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Store Switcher (Super Admin only) */}
@@ -153,12 +178,13 @@ export default function Sidebar() {
         </button>
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center justify-center w-full py-2 rounded-xl text-muted-foreground hover:bg-sidebar-accent transition-all"
+          className="hidden items-center justify-center w-full py-2 rounded-xl text-muted-foreground hover:bg-sidebar-accent transition-all lg:flex"
         >
           {collapsed ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
       </div>
-    </motion.aside>
+      </motion.aside>
+    </>
   );
 }
 

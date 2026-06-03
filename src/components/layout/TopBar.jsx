@@ -1,7 +1,7 @@
 import db from '@/api/base44Client';
 
 import React, { useState } from 'react';
-import { Moon, Sun, Shield } from 'lucide-react';
+import { Menu, Moon, Sun, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/AuthContext';
 import { useStore } from '@/lib/useStore';
 
-export default function TopBar() {
+export default function TopBar({ onMenuClick }) {
   const { user } = useAuth();
   const { currentStore, isSuperAdmin } = useStore();
   const [isDark, setIsDark] = useState(false);
@@ -24,26 +24,29 @@ export default function TopBar() {
     : 'م';
 
   return (
-    <header className="h-16 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-30 flex items-center justify-between px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border bg-card/80 px-3 backdrop-blur-xl sm:px-5 lg:px-6">
       {/* Store indicator */}
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={onMenuClick} className="lg:hidden">
+          <Menu className="h-5 w-5" />
+        </Button>
         {isSuperAdmin && (
-          <Badge className="bg-primary/10 text-primary border-primary/20 gap-1 text-xs">
+          <Badge className="shrink-0 bg-primary/10 text-primary border-primary/20 gap-1 text-xs">
             <Shield className="w-3 h-3" />Super Admin
           </Badge>
         )}
         {currentStore && (
-          <p className="text-sm text-muted-foreground">
+          <p className="truncate text-sm text-muted-foreground">
             {currentStore.name}
           </p>
         )}
         {isSuperAdmin && !currentStore && (
-          <p className="text-sm text-muted-foreground">كل المتاجر</p>
+          <p className="truncate text-sm text-muted-foreground">كل المتاجر</p>
         )}
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         <Button variant="ghost" size="icon" onClick={toggleTheme}>
           {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </Button>
