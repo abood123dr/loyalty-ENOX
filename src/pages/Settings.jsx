@@ -9,7 +9,17 @@ import { Copy, Gift, Link2, Palette, Save, Settings as SettingsIcon, Store } fro
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DigitalStampCard from '@/components/wallet/DigitalStampCard';
+
+const stampOptions = [
+  { value: 'check', label: 'صح', symbol: '✓' },
+  { value: 'star', label: 'نجمة', symbol: '★' },
+  { value: 'heart', label: 'قلب', symbol: '♥' },
+  { value: 'coffee', label: 'دائرة', symbol: '●' },
+  { value: 'gift', label: 'ماسة', symbol: '◆' },
+  { value: 'none', label: 'بدون رمز', symbol: '-' },
+];
 
 const sanitizeSlug = (value) => value
   .trim()
@@ -31,6 +41,7 @@ const storeToForm = (store) => ({
   card_text_color: store?.card_text_color || '#FFFFFF',
   stamp_active_color: store?.stamp_active_color || '#FFFFFF',
   stamp_inactive_color: store?.stamp_inactive_color || '#FFFFFF33',
+  stamp_icon: store?.stamp_icon || 'check',
 });
 
 function ColorField({ label, value, onChange }) {
@@ -114,7 +125,7 @@ export default function Settings() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-foreground">إعدادات المتجر</h2>
-          <p className="mt-1 text-sm text-muted-foreground">تحكم بمعلومات المتجر، رابط التسجيل، وعدد الطوابع والمكافأة.</p>
+          <p className="mt-1 text-sm text-muted-foreground">تحكم بمعلومات المتجر، رابط التسجيل، شكل الطوابع، والمكافأة.</p>
         </div>
         <Button className="gap-2 bg-primary hover:bg-primary/90" onClick={handleSave} disabled={updateMutation.isPending}>
           <Save className="h-4 w-4" />
@@ -188,7 +199,7 @@ export default function Settings() {
               </div>
               <div>
                 <h3 className="font-semibold">الطوابع والمكافأة</h3>
-                <p className="text-xs text-muted-foreground">حدد متى يحصل العميل على المكافأة وماذا تظهر له البطاقة.</p>
+                <p className="text-xs text-muted-foreground">حدد عدد الطوابع وشكلها والمكافأة التي تظهر للعميل.</p>
               </div>
             </div>
 
@@ -223,12 +234,32 @@ export default function Settings() {
                 <Palette className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-semibold">ألوان البطاقة</h3>
-                <p className="text-xs text-muted-foreground">اختر ألوان البطاقة والطوابع حسب هوية المتجر.</p>
+                <h3 className="font-semibold">شكل البطاقة والطوابع</h3>
+                <p className="text-xs text-muted-foreground">اختر شكل الطابع وألوان البطاقة حسب هوية المتجر.</p>
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label>شكل الطابع</Label>
+                <Select value={form.stamp_icon || 'check'} onValueChange={(value) => setForm({ ...form, stamp_icon: value })}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stampOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            {option.symbol}
+                          </span>
+                          {option.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <ColorField label="لون البطاقة" value={form.card_bg_color} onChange={(value) => setForm({ ...form, card_bg_color: value })} />
               <ColorField label="لون النص" value={form.card_text_color} onChange={(value) => setForm({ ...form, card_text_color: value })} />
               <ColorField label="لون الطابع المكتمل" value={form.stamp_active_color} onChange={(value) => setForm({ ...form, stamp_active_color: value })} />

@@ -17,7 +17,7 @@ export default function DigitalStampCard({ store, customer, value }) {
   const textColor = store?.card_text_color || '#ffffff';
   const activeColor = store?.stamp_active_color || '#d9b85f';
   const inactiveColor = store?.stamp_inactive_color || 'rgba(255,255,255,0.25)';
-  const symbol = stampSymbols[store?.stamp_icon || 'coffee'];
+  const symbol = stampSymbols[store?.stamp_icon || 'check'];
   const cardValue = value || customer?.id || '';
   const qrValue = String(cardValue || '');
 
