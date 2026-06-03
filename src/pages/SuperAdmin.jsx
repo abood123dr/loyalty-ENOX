@@ -1,13 +1,13 @@
 import db, { supabase } from '@/api/base44Client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
 import { motion } from 'framer-motion';
 import {
-  Shield, Building2, Plus, MoreHorizontal, CheckCircle, XCircle, Lock, Search,
-  Edit, Trash2, Crown, Star, Globe, UserPlus, Palette, Save, Stamp, Wand2, Upload
+  Shield, Building2, Plus, MoreHorizontal, CheckCircle, XCircle, Search,
+  Edit, Trash2, Crown, Star, Globe, UserPlus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,10 +16,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { normalizeEmail, SUPER_ADMIN_EMAIL } from '@/lib/roles';
-import { generateStampTierImages, stampTemplateOptions } from '@/lib/stampImageGenerator';
 
 const planColors = {
   starter: 'bg-muted text-muted-foreground',
@@ -86,13 +84,6 @@ const storePayload = (data, slugOverride) => ({
   stamp_strip_url: data.stamp_strip_url || null,
   lock_card_design: Boolean(data.lock_card_design),
   is_active: Boolean(data.is_active),
-});
-
-const fileToDataUrl = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(reader.result);
-  reader.onerror = reject;
-  reader.readAsDataURL(file);
 });
 
 function StoreForm({ form, setForm, submitLabel, isPending, onSubmit }) {
@@ -177,46 +168,10 @@ function StoreForm({ form, setForm, submitLabel, isPending, onSubmit }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>عدد الطوابع</Label>
-          <Input type="number" min={1} className="mt-1" dir="ltr" value={form.stamps_required} onChange={e => setForm({ ...form, stamps_required: e.target.value })} />
-        </div>
-        <div>
-          <Label>لون البطاقة</Label>
-          <div className="flex gap-2 mt-1">
-            <input type="color" className="w-10 h-9 rounded-md border border-input cursor-pointer" value={form.card_bg_color || '#7C3AED'} onChange={e => setForm({ ...form, card_bg_color: e.target.value })} />
-            <Input dir="ltr" value={form.card_bg_color || ''} onChange={e => setForm({ ...form, card_bg_color: e.target.value })} />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>لون النص</Label>
-          <div className="flex gap-2 mt-1">
-            <input type="color" className="w-10 h-9 rounded-md border border-input cursor-pointer" value={form.card_text_color || '#FFFFFF'} onChange={e => setForm({ ...form, card_text_color: e.target.value })} />
-            <Input dir="ltr" value={form.card_text_color || ''} onChange={e => setForm({ ...form, card_text_color: e.target.value })} />
-          </div>
-        </div>
-        <div>
-          <Label>وصف المكافأة</Label>
-          <Input className="mt-1" value={form.reward_description || ''} onChange={e => setForm({ ...form, reward_description: e.target.value })} />
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between p-3 rounded-xl bg-destructive/5 border border-destructive/20">
-        <div>
-          <p className="text-sm font-medium">قفل تصميم البطاقة</p>
-          <p className="text-xs text-muted-foreground">عند التفعيل، صاحب المتجر لا يستطيع تعديل التصميم.</p>
-        </div>
-        <Switch checked={Boolean(form.lock_card_design)} onCheckedChange={v => setForm({ ...form, lock_card_design: v })} className="data-[state=checked]:bg-destructive" />
-      </div>
-
       <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
         <div>
           <p className="text-sm font-medium">المحافظ الرقمية لهذا المتجر</p>
-          <p className="text-xs text-muted-foreground">التصميم يعمل الآن على بطاقة الويب وGoogle Wallet وSamsung Wallet.</p>
+          <p className="text-xs text-muted-foreground">تعديل شكل البطاقة والطوابع يتم من صفحة الإعدادات فقط.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge className="bg-success/10 text-success border-success/20" variant="outline">Web Card مفعل</Badge>
@@ -233,392 +188,16 @@ function StoreForm({ form, setForm, submitLabel, isPending, onSubmit }) {
   );
 }
 
-function StampCardPreview({ design }) {
-  const stamps = Math.max(1, Math.min(Number(design.stamps_required) || 10, 30));
-  const bgColor = design.card_bg_color || '#7C3AED';
-  const textColor = design.card_text_color || '#FFFFFF';
-  const activeStampColor = design.stamp_active_color || '#FFFFFF';
-  const inactiveStampColor = design.stamp_inactive_color || '#FFFFFF33';
-  const stampIcon = {
-    check: '✓',
-    star: '★',
-    heart: '♥',
-    coffee: '☕',
-    gift: '◆',
-    none: '',
-  }[design.stamp_icon || 'check'];
-
-  return (
-    <div className="rounded-2xl p-5 shadow-xl min-h-64 flex flex-col justify-between overflow-hidden" style={{ background: `linear-gradient(135deg, ${bgColor}, ${bgColor}cc)`, color: textColor }}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs opacity-75">بطاقة طوابع</p>
-          <h3 className="text-xl font-bold truncate">{design.name || 'اسم المتجر'}</h3>
-        </div>
-        {design.card_logo_url || design.logo_url ? (
-          <img src={design.card_logo_url || design.logo_url} className="w-11 h-11 rounded-xl object-cover bg-white/15 border border-white/20 shrink-0" alt="logo" />
-        ) : (
-          <div className="w-11 h-11 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-            <Stamp className="w-5 h-5" />
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-5 gap-2 my-5">
-        {Array.from({ length: stamps }).map((_, index) => (
-          <div key={index} className="aspect-square rounded-full border-2 border-white/45 bg-white/10 flex items-center justify-center">
-            {index === 0 && (
-              <span className="text-sm font-bold" style={{ color: activeStampColor }}>{stampIcon}</span>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="space-y-1">
-        <p className="text-sm font-semibold">{design.reward_description || 'مكافأة مجانية عند اكتمال الطوابع'}</p>
-        <p className="text-xs opacity-75">1 / {stamps} طابع</p>
-      </div>
-    </div>
-  );
-}
-
-function CardDesignStudio({ stores, selectedId, onSelect, draft, setDraft, onSave, isPending, syncMessage }) {
-  const selectedStore = stores.find(store => store.id === selectedId);
-  const [stampTemplate, setStampTemplate] = useState('cafe');
-  const [generatingImages, setGeneratingImages] = useState(false);
-  const [generatedImages, setGeneratedImages] = useState([]);
-  const [imageText, setImageText] = useState({ title: '', subtitle: '', stampLabel: 'STAMP', stampImageUrl: '', emptyStampImageUrl: '' });
-  const uploadLogo = async (file) => {
-    if (!file) return;
-    const result = await db.integrations.Core.UploadFile(file);
-    setDraft({ ...draft, card_logo_url: result.file_url });
-  };
-  const uploadStrip = async (file) => {
-    if (!file) return;
-    const result = await db.integrations.Core.UploadFile(file);
-    setDraft({ ...draft, stamp_strip_url: result.file_url });
-  };
-  const buildGeneratedImages = () => generateStampTierImages({
-    storeName: draft.name || selectedStore.name,
-    template: stampTemplate,
-    cardBgColor: draft.card_bg_color,
-    cardTextColor: draft.card_text_color,
-    stampActiveColor: draft.stamp_active_color,
-    stampInactiveColor: draft.stamp_inactive_color,
-    totalStamps: draft.stamps_required,
-    title: imageText.title || draft.name || selectedStore.name,
-    subtitle: imageText.subtitle || draft.reward_description,
-    stampLabel: imageText.stampLabel,
-    customStampImageUrl: imageText.stampImageUrl,
-    customEmptyStampImageUrl: imageText.emptyStampImageUrl,
-  });
-
-  const uploadImageSet = async (images) => {
-    const folder = `stamp-designs/${selectedStore.id}/${Date.now()}`;
-    let patternUrl = '';
-
-    for (const item of images) {
-      const path = `${folder}/stamp-${item.tier}.png`;
-      const { error: uploadError } = await supabase.storage
-        .from('uploads')
-        .upload(path, item.blob, { contentType: 'image/png', upsert: true });
-      if (uploadError) throw uploadError;
-      if (item.tier === 0) {
-        const { data } = supabase.storage.from('uploads').getPublicUrl(path);
-        patternUrl = data.publicUrl.replace('stamp-0.png', 'stamp-{stamp}.png');
-      }
-    }
-
-    return patternUrl;
-  };
-
-  const previewImages = async () => {
-    if (!selectedStore) return;
-    setGeneratingImages(true);
-    try {
-      setGeneratedImages(await buildGeneratedImages());
-    } finally {
-      setGeneratingImages(false);
-    }
-  };
-  const uploadGeneratedImages = async () => {
-    if (!selectedStore || generatedImages.length === 0) return;
-    setGeneratingImages(true);
-    try {
-      setDraft({ ...draft, stamp_strip_url: await uploadImageSet(generatedImages) });
-    } finally {
-      setGeneratingImages(false);
-    }
-  };
-  const handleSave = async () => {
-    if (!selectedStore) return;
-    setGeneratingImages(true);
-    try {
-      let nextDraft = draft;
-      if (generatedImages.length > 0 || draft.stamp_strip_url?.includes('{stamp}')) {
-        const images = generatedImages.length > 0 ? generatedImages : await buildGeneratedImages();
-        nextDraft = { ...draft, stamp_strip_url: await uploadImageSet(images) };
-        setDraft(nextDraft);
-      }
-      onSave(nextDraft);
-    } finally {
-      setGeneratingImages(false);
-    }
-  };
-
-  if (stores.length === 0) return null;
-
-  return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h3 className="font-bold flex items-center gap-2"><Palette className="w-4 h-4 text-primary" />مصمم بطاقات الطوابع</h3>
-          <p className="text-xs text-muted-foreground mt-1">اختر المتجر وعدّل شكل بطاقة الطوابع التي تظهر للعميل.</p>
-        </div>
-        <Select value={selectedId || ''} onValueChange={onSelect}>
-          <SelectTrigger className="w-56"><SelectValue placeholder="اختر متجر" /></SelectTrigger>
-          <SelectContent>
-            {stores.map(store => <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid lg:grid-cols-[360px_1fr] gap-5 p-5">
-        <StampCardPreview design={{ ...selectedStore, ...draft }} />
-
-        <div className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <Label>اسم البطاقة</Label>
-              <Input className="mt-1" value={draft.name || ''} onChange={e => setDraft({ ...draft, name: e.target.value })} />
-            </div>
-            <div>
-              <Label>عدد الطوابع</Label>
-              <Input type="number" min={1} max={30} className="mt-1" dir="ltr" value={draft.stamps_required || 10} onChange={e => setDraft({ ...draft, stamps_required: e.target.value })} />
-            </div>
-          </div>
-
-          <div>
-            <Label>وصف المكافأة</Label>
-            <Input className="mt-1" value={draft.reward_description || ''} onChange={e => setDraft({ ...draft, reward_description: e.target.value })} placeholder="مثال: مشروب مجاني بعد 10 زيارات" />
-          </div>
-
-          <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
-            <div>
-              <Label>لوجو البطاقة</Label>
-              <Input className="mt-1" dir="ltr" value={draft.card_logo_url || ''} onChange={e => setDraft({ ...draft, card_logo_url: e.target.value })} placeholder="https://..." />
-            </div>
-            <div>
-              <Label className="sr-only">رفع لوجو</Label>
-              <Input type="file" accept="image/*" className="mt-1 w-44" onChange={e => uploadLogo(e.target.files?.[0])} />
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
-            <div>
-              <Label>صورة الطوابع للبطاقة</Label>
-              <Input className="mt-1" dir="ltr" value={draft.stamp_strip_url || ''} onChange={e => setDraft({ ...draft, stamp_strip_url: e.target.value })} placeholder="https://..." />
-            </div>
-            <div>
-              <Label className="sr-only">رفع صورة الطوابع</Label>
-              <Input type="file" accept="image/*" className="mt-1 w-44" onChange={e => uploadStrip(e.target.files?.[0])} />
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <Label>لون البطاقة</Label>
-              <div className="flex gap-2 mt-1">
-                <input type="color" className="w-10 h-9 rounded-md border border-input cursor-pointer" value={draft.card_bg_color || '#7C3AED'} onChange={e => setDraft({ ...draft, card_bg_color: e.target.value })} />
-                <Input dir="ltr" value={draft.card_bg_color || ''} onChange={e => setDraft({ ...draft, card_bg_color: e.target.value })} />
-              </div>
-            </div>
-            <div>
-              <Label>لون النص</Label>
-              <div className="flex gap-2 mt-1">
-                <input type="color" className="w-10 h-9 rounded-md border border-input cursor-pointer" value={draft.card_text_color || '#FFFFFF'} onChange={e => setDraft({ ...draft, card_text_color: e.target.value })} />
-                <Input dir="ltr" value={draft.card_text_color || ''} onChange={e => setDraft({ ...draft, card_text_color: e.target.value })} />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-3 gap-3">
-            <div>
-              <Label>لون الطابع المكتمل</Label>
-              <div className="flex gap-2 mt-1">
-                <input type="color" className="w-10 h-9 rounded-md border border-input cursor-pointer" value={draft.stamp_active_color || '#FFFFFF'} onChange={e => setDraft({ ...draft, stamp_active_color: e.target.value })} />
-                <Input dir="ltr" value={draft.stamp_active_color || ''} onChange={e => setDraft({ ...draft, stamp_active_color: e.target.value })} />
-              </div>
-            </div>
-            <div>
-              <Label>لون الطابع الفارغ</Label>
-              <div className="flex gap-2 mt-1">
-                <input type="color" className="w-10 h-9 rounded-md border border-input cursor-pointer" value={(draft.stamp_inactive_color || '#FFFFFF33').slice(0, 7)} onChange={e => setDraft({ ...draft, stamp_inactive_color: e.target.value })} />
-                <Input dir="ltr" value={draft.stamp_inactive_color || ''} onChange={e => setDraft({ ...draft, stamp_inactive_color: e.target.value })} />
-              </div>
-            </div>
-            <div>
-              <Label>شكل الطابع</Label>
-              <Select value={draft.stamp_icon || 'check'} onValueChange={v => setDraft({ ...draft, stamp_icon: v })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="check">صح</SelectItem>
-                  <SelectItem value="star">نجمة</SelectItem>
-                  <SelectItem value="heart">قلب</SelectItem>
-                  <SelectItem value="coffee">قهوة</SelectItem>
-                  <SelectItem value="gift">ماسة</SelectItem>
-                  <SelectItem value="none">بدون رمز</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border">
-            <div>
-              <p className="text-sm font-medium">قفل التعديل على صاحب المتجر</p>
-              <p className="text-xs text-muted-foreground">السوبر أدمن فقط يتحكم في شكل البطاقة عند التفعيل.</p>
-            </div>
-            <Switch checked={Boolean(draft.lock_card_design)} onCheckedChange={v => setDraft({ ...draft, lock_card_design: v })} />
-          </div>
-
-          <div className="rounded-xl border border-border bg-muted/30 p-3">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <Label>مولد صور الطوابع حسب النشاط</Label>
-                <Select value={stampTemplate} onValueChange={setStampTemplate}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {stampTemplateOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>عنوان الصورة</Label>
-                <Input className="mt-1" value={imageText.title || draft.name || ''} onChange={e => setImageText({ ...imageText, title: e.target.value })} />
-              </div>
-              <div>
-                <Label>كلمة الطابع</Label>
-                <Input className="mt-1" dir="ltr" value={imageText.stampLabel} onChange={e => setImageText({ ...imageText, stampLabel: e.target.value })} />
-              </div>
-            </div>
-            <div className="mt-3">
-              <Label>النص الصغير</Label>
-              <Input className="mt-1" value={imageText.subtitle || draft.reward_description || ''} onChange={e => setImageText({ ...imageText, subtitle: e.target.value })} />
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] items-end">
-              <div>
-                <Label>صورة الطابع المكتمل</Label>
-                <Input className="mt-1" dir="ltr" value={imageText.stampImageUrl} onChange={e => setImageText({ ...imageText, stampImageUrl: e.target.value })} placeholder="https://..." />
-              </div>
-              <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-input px-3 text-sm">
-                <Upload className="h-4 w-4" />
-                رفع الطابع
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={async e => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const dataUrl = await fileToDataUrl(file);
-                    setImageText(current => ({ ...current, stampImageUrl: dataUrl }));
-                  }}
-                />
-              </label>
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] items-end">
-              <div>
-                <Label>صورة الطابع الفاضي</Label>
-                <Input className="mt-1" dir="ltr" value={imageText.emptyStampImageUrl} onChange={e => setImageText({ ...imageText, emptyStampImageUrl: e.target.value })} placeholder="https://..." />
-              </div>
-              <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-input px-3 text-sm">
-                <Upload className="h-4 w-4" />
-                رفع الفاضي
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={async e => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const dataUrl = await fileToDataUrl(file);
-                    setImageText(current => ({ ...current, emptyStampImageUrl: dataUrl }));
-                  }}
-                />
-              </label>
-            </div>
-            {(imageText.stampImageUrl || imageText.emptyStampImageUrl) && (
-              <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg border border-border bg-background p-2">
-                <div className="text-center">
-                  {imageText.emptyStampImageUrl && <img src={imageText.emptyStampImageUrl} alt="empty stamp" className="mx-auto h-14 w-14 rounded-full object-cover" />}
-                  <p className="mt-1 text-xs text-muted-foreground">قبل الختم</p>
-                </div>
-                <div className="text-center">
-                  {imageText.stampImageUrl && <img src={imageText.stampImageUrl} alt="filled stamp" className="mx-auto h-14 w-14 rounded-full object-cover" />}
-                  <p className="mt-1 text-xs text-muted-foreground">بعد الختم</p>
-                </div>
-              </div>
-            )}
-            {generatedImages.length > 0 && (
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {generatedImages.map(image => (
-                  <div key={image.tier} className="rounded-lg border border-border bg-background p-2">
-                    <img src={image.dataUrl} alt={`stamp ${image.tier}`} className="aspect-[1125/432] w-full rounded-md object-cover" />
-                    <p className="mt-1 text-center text-xs text-muted-foreground">{image.tier}/5</p>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <Button type="button" variant="outline" onClick={previewImages} disabled={generatingImages || !selectedId}>
-                <Wand2 className="w-4 h-4 ml-2" />
-                {generatingImages ? 'جاري المعاينة...' : 'معاينة الصور'}
-              </Button>
-              <Button type="button" variant="secondary" onClick={uploadGeneratedImages} disabled={generatingImages || generatedImages.length === 0}>
-                اعتماد ورفع الصور
-              </Button>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              عدل الألوان والنصوص ثم عاين الصور. لا يتم رفعها للبطاقة إلا بعد اعتمادها.
-            </p>
-          </div>
-
-          {syncMessage && (
-            <div className={cn(
-              'rounded-xl border p-3 text-sm',
-              syncMessage.type === 'error'
-                ? 'border-destructive/20 bg-destructive/10 text-destructive'
-                : 'border-success/20 bg-success/10 text-success'
-            )}>
-              {syncMessage.text}
-            </div>
-          )}
-
-          <Button className="w-full bg-primary hover:bg-primary/90" disabled={!selectedId || isPending || generatingImages} onClick={handleSave}>
-            <Save className="w-4 h-4 ml-2" />
-            {isPending || generatingImages ? 'جاري الحفظ...' : 'حفظ إعدادات البطاقة'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function SuperAdmin() {
   const { allStores, reloadStores } = useStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [designStoreId, setDesignStoreId] = useState('');
-  const [designDraft, setDesignDraft] = useState(emptyForm);
   const [showAdd, setShowAdd] = useState(false);
   const [editingStore, setEditingStore] = useState(null);
   const [userStore, setUserStore] = useState(null);
   const [userForm, setUserForm] = useState({ name: '', email: '', password: '' });
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
-  const [designSyncMessage, setDesignSyncMessage] = useState(null);
 
   const createUniqueSlug = async (data, currentStoreId = null) => {
     const base = slugify(data.slug || data.name) || `store-${Date.now()}`;
@@ -646,30 +225,6 @@ export default function SuperAdmin() {
     }
     return `${base}-${index}`;
   };
-
-  useEffect(() => {
-    if (!designStoreId && allStores[0]?.id) {
-      setDesignStoreId(allStores[0].id);
-    }
-  }, [allStores, designStoreId]);
-
-  useEffect(() => {
-    const store = allStores.find(s => s.id === designStoreId);
-    if (!store) return;
-    setDesignDraft({
-      name: store.name || '',
-      stamps_required: store.stamps_required || 10,
-      reward_description: store.reward_description || '',
-      card_bg_color: store.card_bg_color || '#7C3AED',
-      card_text_color: store.card_text_color || '#FFFFFF',
-      card_logo_url: store.card_logo_url || store.logo_url || '',
-      stamp_active_color: store.stamp_active_color || '#FFFFFF',
-      stamp_inactive_color: store.stamp_inactive_color || '#FFFFFF33',
-      stamp_icon: store.stamp_icon || 'check',
-      stamp_strip_url: store.stamp_strip_url || '',
-      lock_card_design: Boolean(store.lock_card_design),
-    });
-  }, [allStores, designStoreId]);
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
@@ -721,39 +276,6 @@ export default function SuperAdmin() {
     onError: (err) => setError(err.message || 'تعذر تحديث المتجر.'),
   });
 
-  const designMutation = useMutation({
-    mutationFn: async (draftOverride) => {
-      setDesignSyncMessage(null);
-      const draftToSave = draftOverride || designDraft;
-
-      await db.entities.Store.update(designStoreId, {
-        name: draftToSave.name,
-        stamps_required: Number(draftToSave.stamps_required) || 10,
-        reward_description: draftToSave.reward_description,
-        card_bg_color: draftToSave.card_bg_color || '#7C3AED',
-        card_text_color: draftToSave.card_text_color || '#FFFFFF',
-        card_logo_url: draftToSave.card_logo_url || null,
-        stamp_active_color: draftToSave.stamp_active_color || '#FFFFFF',
-        stamp_inactive_color: draftToSave.stamp_inactive_color || '#FFFFFF33',
-        stamp_icon: draftToSave.stamp_icon || 'check',
-        stamp_strip_url: draftToSave.stamp_strip_url || null,
-        lock_card_design: Boolean(draftToSave.lock_card_design),
-      });
-
-      return db.integrations.GoogleWallet.syncPass({ storeId: designStoreId });
-    },
-    onSuccess: (result) => {
-      reloadStores();
-      setDesignSyncMessage({
-        type: 'success',
-        text: `تم حفظ إعدادات البطاقة وتحديث Google Wallet لعدد ${result?.updated || 0} بطاقة. بطاقة الويب تتحدث مباشرة.`,
-      });
-    },
-    onError: (err) => {
-      setDesignSyncMessage({ type: 'error', text: err.message || 'تعذر حفظ إعدادات البطاقة.' });
-    },
-  });
-
   const createUserMutation = useMutation({
     mutationFn: async ({ store, user }) => {
       setError('');
@@ -799,7 +321,6 @@ export default function SuperAdmin() {
     { label: 'إجمالي المتاجر', value: allStores.length, icon: Building2, color: 'text-primary', bg: 'bg-primary/10' },
     { label: 'متاجر نشطة', value: allStores.filter(s => s.subscription_status === 'active').length, icon: CheckCircle, color: 'text-success', bg: 'bg-success/10' },
     { label: 'تجريبي', value: allStores.filter(s => s.subscription_status === 'trial').length, icon: Star, color: 'text-warning', bg: 'bg-warning/10' },
-    { label: 'تصميم مقفل', value: allStores.filter(s => s.lock_card_design).length, icon: Lock, color: 'text-destructive', bg: 'bg-destructive/10' },
   ];
 
   return (
@@ -854,17 +375,6 @@ export default function SuperAdmin() {
         ))}
       </div>
 
-      <CardDesignStudio
-        stores={allStores}
-        selectedId={designStoreId}
-        onSelect={setDesignStoreId}
-        draft={designDraft}
-        setDraft={setDesignDraft}
-        onSave={(nextDraft) => designMutation.mutate(nextDraft)}
-        isPending={designMutation.isPending}
-        syncMessage={designSyncMessage}
-      />
-
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48 max-w-sm">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -884,11 +394,10 @@ export default function SuperAdmin() {
       </div>
 
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto] text-xs font-semibold text-muted-foreground px-5 py-3 border-b border-border bg-muted/30">
+        <div className="grid grid-cols-[1fr_auto_auto_auto] text-xs font-semibold text-muted-foreground px-5 py-3 border-b border-border bg-muted/30">
           <span>المتجر</span>
           <span className="px-4 text-center">الخطة</span>
           <span className="px-4 text-center">الحالة</span>
-          <span className="px-4 text-center">التصميم</span>
           <span></span>
         </div>
 
@@ -900,7 +409,7 @@ export default function SuperAdmin() {
         ) : (
           filtered.map((store, i) => (
             <motion.div key={store.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
-              className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center px-5 py-4 border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+              className="grid grid-cols-[1fr_auto_auto_auto] items-center px-5 py-4 border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
                   style={{ background: `${store.card_bg_color || '#7C3AED'}22`, color: store.card_bg_color || '#7C3AED' }}>
@@ -921,24 +430,13 @@ export default function SuperAdmin() {
                   {statusLabels[store.subscription_status] || store.subscription_status}
                 </Badge>
               </div>
-              <div className="px-4 flex items-center gap-2">
-                <Switch
-                  checked={Boolean(store.lock_card_design)}
-                  onCheckedChange={(v) => quickUpdateMutation.mutate({ id: store.id, data: { lock_card_design: v } })}
-                  className="data-[state=checked]:bg-destructive scale-75"
-                />
-                <span className="text-xs text-muted-foreground">{store.lock_card_design ? 'مقفل' : 'مسموح'}</span>
-              </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="w-8 h-8"><MoreHorizontal className="w-4 h-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
                   <DropdownMenuItem onClick={() => setEditingStore({ ...emptyForm, ...store, owner_password: undefined })}>
-                    <Edit className="w-4 h-4 ml-2" />تعديل المتجر والتصميم
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setEditingStore({ ...emptyForm, ...store, owner_password: undefined })}>
-                    <Palette className="w-4 h-4 ml-2" />ألوان البطاقة
+                    <Edit className="w-4 h-4 ml-2" />تعديل المتجر
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => quickUpdateMutation.mutate({ id: store.id, data: { is_active: !store.is_active } })}>
                     {store.is_active ? <><XCircle className="w-4 h-4 ml-2 text-destructive" />تعطيل</> : <><CheckCircle className="w-4 h-4 ml-2 text-success" />تفعيل</>}
