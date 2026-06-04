@@ -3,19 +3,23 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://wwoeusyaiqnklgnzdwmh.supabase.co';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3b2V1c3lhaXFua2xnbnpkd21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5ODgwODMsImV4cCI6MjA5NTU2NDA4M30.ZbCgIC_UeuMi5ItXrE0-B2c0_zlSejULILlbecvsjRc';
 
-const memorySessionStorage = (() => {
-  const store = new Map();
+const getSessionStorage = () => {
+  if (typeof window === 'undefined') {
+    const store = new Map();
 
-  return {
-    getItem: (key) => store.get(key) ?? null,
-    setItem: (key, value) => {
-      store.set(key, value);
-    },
-    removeItem: (key) => {
-      store.delete(key);
-    },
-  };
-})();
+    return {
+      getItem: (key) => store.get(key) ?? null,
+      setItem: (key, value) => {
+        store.set(key, value);
+      },
+      removeItem: (key) => {
+        store.delete(key);
+      },
+    };
+  }
+
+  return window.sessionStorage;
+};
 
 const clearLegacySupabaseStorage = () => {
   if (typeof window === 'undefined') return;
@@ -36,7 +40,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     persistSession: true,
-    storage: memorySessionStorage,
+    storage: getSessionStorage(),
     storageKey: 'loyalty-enox-auth-session',
   },
 });
