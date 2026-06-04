@@ -3,7 +3,43 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://wwoeusyaiqnklgnzdwmh.supabase.co';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3b2V1c3lhaXFua2xnbnpkd21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5ODgwODMsImV4cCI6MjA5NTU2NDA4M30.ZbCgIC_UeuMi5ItXrE0-B2c0_zlSejULILlbecvsjRc';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const memorySessionStorage = (() => {
+  const store = new Map();
+
+  return {
+    getItem: (key) => store.get(key) ?? null,
+    setItem: (key, value) => {
+      store.set(key, value);
+    },
+    removeItem: (key) => {
+      store.delete(key);
+    },
+  };
+})();
+
+const clearLegacySupabaseStorage = () => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    Object.keys(window.localStorage)
+      .filter((key) => key.startsWith('sb-') || key.includes('supabase'))
+      .forEach((key) => window.localStorage.removeItem(key));
+  } catch {
+    // Storage access can be blocked by browser policy; auth uses memory storage below.
+  }
+};
+
+clearLegacySupabaseStorage();
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    persistSession: true,
+    storage: memorySessionStorage,
+    storageKey: 'loyalty-enox-auth-session',
+  },
+});
 
 const TABLE_NAMES = {
   Store: 'stores',
@@ -54,6 +90,7 @@ const auth = {
   },
   logout: async () => {
     await supabase.auth.signOut();
+    clearLegacySupabaseStorage();
   },
   register: async (emailOrPayload, passwordArg, metadataArg = {}) => {
     const payload = typeof emailOrPayload === 'object'

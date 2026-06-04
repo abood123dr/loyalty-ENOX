@@ -38,6 +38,13 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     await supabase.auth.signOut();
+    try {
+      Object.keys(window.localStorage)
+        .filter((key) => key.startsWith('sb-') || key.includes('supabase'))
+        .forEach((key) => window.localStorage.removeItem(key));
+    } catch {
+      // Storage may be blocked by the browser; Supabase session was still cleared.
+    }
     setUser(null);
     setIsAuthenticated(false);
     window.location.href = '/login';
