@@ -10,22 +10,48 @@ import { Label } from '@/components/ui/label';
 import { isPlatformAdmin } from '@/lib/roles';
 import { Loader2, Lock, LogIn, Mail } from 'lucide-react';
 
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCK_DURATION_MS = 10 * 60 * 1000;
+const LOGIN_ERROR_MESSAGE = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+const LOCKED_MESSAGE = 'تم إيقاف المحاولة مؤقتا. حاول مرة أخرى بعد 10 دقائق.';
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState(0);
+
+  const isLocked = lockedUntil > Date.now();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+
+    if (isLocked) {
+      setError(LOCKED_MESSAGE);
+      return;
+    }
+
     setLoading(true);
 
     try {
       const result = await db.auth.login(email, password);
+      setFailedAttempts(0);
+      setLockedUntil(0);
       window.location.href = isPlatformAdmin(result?.user) ? '/super-admin' : '/';
     } catch (err) {
-      setError(err.message || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+      console.error('Login failed', err);
+      const nextAttempts = failedAttempts + 1;
+      setFailedAttempts(nextAttempts);
+
+      if (nextAttempts >= MAX_FAILED_ATTEMPTS) {
+        setLockedUntil(Date.now() + LOCK_DURATION_MS);
+        setError(LOCKED_MESSAGE);
+      } else {
+        setError(LOGIN_ERROR_MESSAGE);
+      }
     } finally {
       setLoading(false);
     }
@@ -44,7 +70,7 @@ export default function Login() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form method="post" onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-2">
           <Label htmlFor="email">البريد الإلكتروني</Label>
           <div className="relative">
@@ -55,6 +81,7 @@ export default function Login() {
               autoComplete="email"
               autoFocus
               placeholder="you@example.com"
+              maxLength={255}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               className="h-12 pl-10"
@@ -78,6 +105,8 @@ export default function Login() {
               type="password"
               autoComplete="current-password"
               placeholder="••••••••"
+              minLength={8}
+              maxLength={128}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="h-12 pl-10"
@@ -87,7 +116,7 @@ export default function Login() {
           </div>
         </div>
 
-        <Button type="submit" className="h-12 w-full font-medium" disabled={loading}>
+        <Button type="submit" className="h-12 w-full font-medium" disabled={loading || isLocked}>
           {loading ? (
             <>
               <Loader2 className="ml-2 h-4 w-4 animate-spin" />

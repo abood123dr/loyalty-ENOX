@@ -260,6 +260,13 @@ const integrations = {
       return data;
     },
   },
+  Security: {
+    verifyAdmin: async () => {
+      const { data, error } = await supabase.functions.invoke('verify-admin');
+      if (error) throw error;
+      return Boolean(data?.isSuperAdmin);
+    },
+  },
 };
 
 export const db = { auth, entities, integrations };

@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import db from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/lib/useStore';
 
@@ -11,10 +13,41 @@ const Loader = () => (
 
 export default function SuperAdminRoute({ children }) {
   const { isLoadingStore, isSuperAdmin } = useStore();
+  const [isVerifying, setIsVerifying] = useState(true);
+  const [serverVerified, setServerVerified] = useState(false);
 
-  if (isLoadingStore) return <Loader />;
+  useEffect(() => {
+    let isMounted = true;
 
-  if (!isSuperAdmin) {
+    const verifyAdmin = async () => {
+      if (!isSuperAdmin) {
+        setServerVerified(false);
+        setIsVerifying(false);
+        return;
+      }
+
+      setIsVerifying(true);
+      try {
+        const allowed = await db.integrations.Security.verifyAdmin();
+        if (isMounted) setServerVerified(allowed);
+      } catch (error) {
+        console.error('Super admin verification failed', error);
+        if (isMounted) setServerVerified(false);
+      } finally {
+        if (isMounted) setIsVerifying(false);
+      }
+    };
+
+    if (!isLoadingStore) verifyAdmin();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoadingStore, isSuperAdmin]);
+
+  if (isLoadingStore || isVerifying) return <Loader />;
+
+  if (!isSuperAdmin || !serverVerified) {
     return (
       <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-center justify-center text-center">
         <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
