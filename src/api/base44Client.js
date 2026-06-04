@@ -3,24 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://wwoeusyaiqnklgnzdwmh.supabase.co';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3b2V1c3lhaXFua2xnbnpkd21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5ODgwODMsImV4cCI6MjA5NTU2NDA4M30.ZbCgIC_UeuMi5ItXrE0-B2c0_zlSejULILlbecvsjRc';
 
-const getSessionStorage = () => {
-  if (typeof window === 'undefined') {
-    const store = new Map();
-
-    return {
-      getItem: (key) => store.get(key) ?? null,
-      setItem: (key, value) => {
-        store.set(key, value);
-      },
-      removeItem: (key) => {
-        store.delete(key);
-      },
-    };
-  }
-
-  return window.sessionStorage;
-};
-
 const clearLegacySupabaseStorage = () => {
   if (typeof window === 'undefined') return;
 
@@ -28,8 +10,11 @@ const clearLegacySupabaseStorage = () => {
     Object.keys(window.localStorage)
       .filter((key) => key.startsWith('sb-') || key.includes('supabase'))
       .forEach((key) => window.localStorage.removeItem(key));
+    Object.keys(window.sessionStorage)
+      .filter((key) => key.startsWith('sb-') || key.includes('supabase') || key === 'loyalty-enox-auth-session')
+      .forEach((key) => window.sessionStorage.removeItem(key));
   } catch {
-    // Storage access can be blocked by browser policy; auth uses memory storage below.
+    // Storage access can be blocked by browser policy; auth is not persisted below.
   }
 };
 
@@ -39,8 +24,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    persistSession: true,
-    storage: getSessionStorage(),
+    persistSession: false,
     storageKey: 'loyalty-enox-auth-session',
   },
 });
@@ -273,6 +257,30 @@ const integrations = {
     createPass: async ({ storeId, customerId }) => {
       const { data, error } = await supabase.functions.invoke('samsung-wallet-create-pass', {
         body: { storeId, customerId },
+      });
+      if (error) {
+        if (error.context?.json) {
+          const details = await error.context.json().catch(() => null);
+          throw new Error(details?.error || error.message);
+        }
+        throw error;
+      }
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+  },
+  Public: {
+    getStore: async ({ slug }) => {
+      const { data, error } = await supabase.functions.invoke('public-store', {
+        body: { slug },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data.store;
+    },
+    registerCustomer: async ({ storeSlug, fullName, phone }) => {
+      const { data, error } = await supabase.functions.invoke('public-register-customer', {
+        body: { storeSlug, fullName, phone },
       });
       if (error) {
         if (error.context?.json) {

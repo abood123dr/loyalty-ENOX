@@ -1,4 +1,4 @@
-import db, { supabase } from '@/api/base44Client';
+import db from '@/api/base44Client';
 
 import React, { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -50,11 +50,12 @@ export default function StoreRegister() {
   useEffect(() => {
     const loadStore = async () => {
       setLoading(true);
-      const stores = await db.entities.Store.filter({ slug });
-      if (stores.length === 0 || !stores[0].is_active) {
+      setNotFound(false);
+      try {
+        const publicStore = await db.integrations.Public.getStore({ slug });
+        setStore(publicStore);
+      } catch {
         setNotFound(true);
-      } else {
-        setStore(stores[0]);
       }
       setLoading(false);
     };
@@ -70,29 +71,18 @@ export default function StoreRegister() {
     setError('');
     setSubmitting(true);
 
-    const customer = {
-      id: crypto.randomUUID(),
-      store_id: store.id,
-      full_name: form.full_name.trim(),
-      phone: form.phone.trim(),
-      current_stamps: 0,
-      total_stamps_earned: 0,
-      total_rewards_redeemed: 0,
-      wallet_type: 'web',
-      is_active: true,
-    };
-    const url = `${window.location.origin}/card/${store.slug}/${customer.id}`;
-    customer.wallet_pass_url = url;
-
     try {
-      const { error: insertError } = await supabase.from('store_customers').insert(customer);
-      if (insertError) throw insertError;
+      const result = await db.integrations.Public.registerCustomer({
+        storeSlug: store.slug,
+        fullName: form.full_name,
+        phone: form.phone,
+      });
 
-      setNewCustomer({ ...customer, wallet_pass_url: url });
-      setCardUrl(url);
+      setNewCustomer(result.customer);
+      setCardUrl(result.cardUrl);
       setStep('success');
     } catch (submitError) {
-      if (submitError?.code === '23505') {
+      if (submitError?.message === 'Phone already registered') {
         setError('هذا الرقم مسجل مسبقا في هذا المتجر');
       } else {
         setError(submitError?.message || 'تعذر التسجيل، حاول مرة أخرى');

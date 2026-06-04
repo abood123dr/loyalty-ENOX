@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
+import { useAuth } from '@/lib/AuthContext';
 import { motion } from 'framer-motion';
 import {
   Shield, Building2, Plus, MoreHorizontal, CheckCircle, XCircle, Search,
@@ -189,6 +190,7 @@ function StoreForm({ form, setForm, submitLabel, isPending, onSubmit }) {
 }
 
 export default function SuperAdmin() {
+  const { user } = useAuth();
   const { allStores, reloadStores } = useStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -230,7 +232,10 @@ export default function SuperAdmin() {
     mutationFn: async (data) => {
       setError('');
       const uniqueSlug = await createUniqueSlug(data);
-      const store = await db.entities.Store.create(storePayload(data, uniqueSlug));
+      const store = await db.entities.Store.create({
+        ...storePayload(data, uniqueSlug),
+        owner_user_id: user.id,
+      });
 
       if (data.owner_email && data.owner_password) {
         const userResult = await db.auth.createStoreUser({

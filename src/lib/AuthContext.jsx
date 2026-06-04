@@ -42,6 +42,9 @@ export const AuthProvider = ({ children }) => {
       Object.keys(window.localStorage)
         .filter((key) => key.startsWith('sb-') || key.includes('supabase'))
         .forEach((key) => window.localStorage.removeItem(key));
+      Object.keys(window.sessionStorage)
+        .filter((key) => key.startsWith('sb-') || key.includes('supabase') || key === 'loyalty-enox-auth-session')
+        .forEach((key) => window.sessionStorage.removeItem(key));
     } catch {
       // Storage may be blocked by the browser; Supabase session was still cleared.
     }

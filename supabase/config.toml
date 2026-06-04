@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.samsung-wallet-card-state]
 verify_jwt = false
+
+[functions.public-store]
+verify_jwt = false
+
+[functions.public-register-customer]
+verify_jwt = false
