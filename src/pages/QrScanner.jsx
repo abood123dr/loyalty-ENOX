@@ -12,6 +12,7 @@ import {
   CameraOff,
   CheckCircle,
   Clock,
+  ExternalLink,
   Gift,
   History,
   Phone,
@@ -36,6 +37,21 @@ const formatTime = (date) => new Intl.DateTimeFormat('ar-SA', {
   hour: '2-digit',
   minute: '2-digit',
 }).format(new Date(date));
+
+const formatDateTime = (date) => {
+  if (!date) return 'لم تسجل زيارة بعد';
+  return new Intl.DateTimeFormat('ar-SA', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date));
+};
+
+const getCustomerCardUrl = (store, customer) => {
+  if (!store?.slug || !customer?.id) return '';
+  return `${window.location.origin}/card/${store.slug}/${customer.id}`;
+};
 
 const getCameraErrorMessage = (error) => {
   const name = error?.name || '';
@@ -73,12 +89,22 @@ export default function QrScanner() {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [recentActions, setRecentActions] = useState([]);
+  const [nowTick, setNowTick] = useState(Date.now());
 
   const stampsRequired = currentStore?.stamps_required || 10;
   const currentStamps = foundCustomer?.current_stamps || 0;
   const remainingStamps = Math.max(stampsRequired - currentStamps, 0);
   const nextScanIsReward = currentStamps + 1 >= stampsRequired;
   const progress = Math.min((currentStamps / stampsRequired) * 100, 100);
+  const customerCardUrl = getCustomerCardUrl(currentStore, foundCustomer);
+  const duplicateRemainingSeconds = foundCustomer
+    ? Math.max(Math.ceil(((duplicateLocksRef.current.get(foundCustomer.id) || 0) - nowTick) / 1000), 0)
+    : 0;
+  const hasWallet = Boolean(
+    foundCustomer?.google_wallet_object_id
+    || foundCustomer?.samsung_wallet_ref_id
+    || foundCustomer?.apple_wallet_serial_number
+  );
 
   const searchMutation = useMutation({
     mutationFn: async (input) => {
@@ -128,6 +154,11 @@ export default function QrScanner() {
   };
 
   useEffect(() => () => stopCamera(), []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const runCameraScan = () => {
     if (!scanningRef.current || !videoRef.current) return;
@@ -444,6 +475,18 @@ export default function QrScanner() {
                       </p>
                     </div>
                   </div>
+                  <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+                    <div className="rounded-xl bg-muted/60 p-3">
+                      <p className="text-xs text-muted-foreground">آخر زيارة</p>
+                      <p className="mt-1 font-semibold">{formatDateTime(foundCustomer.last_stamp_date)}</p>
+                    </div>
+                    <div className="rounded-xl bg-muted/60 p-3">
+                      <p className="text-xs text-muted-foreground">حالة البطاقة</p>
+                      <p className={cn('mt-1 font-semibold', hasWallet ? 'text-success' : 'text-muted-foreground')}>
+                        {hasWallet ? 'مضافة إلى Wallet' : 'بطاقة رقمية فقط'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="border-b border-border p-5">
@@ -482,6 +525,12 @@ export default function QrScanner() {
                 </div>
 
                 <div className="p-5">
+                  {duplicateRemainingSeconds > 0 && (
+                    <div className="mb-4 flex items-center gap-2 rounded-xl border border-warning/20 bg-warning/10 p-3 text-warning">
+                      <Clock className="h-5 w-5" />
+                      <p className="font-medium">يمكن إضافة طابع جديد بعد {duplicateRemainingSeconds} ثانية.</p>
+                    </div>
+                  )}
                   {scanResult === 'stamped' && (
                     <div className="mb-4 flex items-center gap-2 rounded-xl border border-success/20 bg-success/10 p-3 text-success">
                       <CheckCircle className="h-5 w-5" />
@@ -504,10 +553,19 @@ export default function QrScanner() {
                     <Button
                       className="h-12 gap-2 bg-primary text-base hover:bg-primary/90"
                       onClick={handleStamp}
-                      disabled={stampMutation.isPending}
+                      disabled={stampMutation.isPending || duplicateRemainingSeconds > 0}
                     >
                       <Stamp className="h-4 w-4" />
                       {stampMutation.isPending ? 'جاري الإضافة...' : nextScanIsReward ? 'صرف المكافأة' : 'إضافة طابع'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={!customerCardUrl}
+                      onClick={() => window.open(customerCardUrl, '_blank')}
+                      className="gap-2"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      فتح بطاقة العميل
                     </Button>
                     <Button variant="outline" onClick={handleScanNext} className="gap-2">
                       <ScanLine className="h-4 w-4" />
