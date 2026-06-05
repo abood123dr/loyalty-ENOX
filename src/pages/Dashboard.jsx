@@ -1,11 +1,12 @@
 import db from '@/api/base44Client';
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
 import { motion } from 'framer-motion';
-import { Users, Stamp, Gift, QrCode, Store } from 'lucide-react';
+import { QrCode, Send, Stamp, Store, UserPlus, Users, Gift, Wallet } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const weekData = [
@@ -80,6 +81,37 @@ export default function Dashboard() {
     ...(isSuperAdmin ? [{ title: 'المتاجر المشتركة', value: allStores.length.toLocaleString(), sub: `${allStores.filter(s => s.subscription_status === 'active').length} نشط`, icon: Store, color: 'purple' }] : []),
   ];
 
+  const quickActions = [
+    {
+      title: 'إضافة عميل',
+      description: 'أنشئ بطاقة جديدة بسرعة',
+      path: '/customers',
+      icon: UserPlus,
+      tone: 'bg-primary/10 text-primary',
+    },
+    {
+      title: 'مسح QR',
+      description: 'أضف طابع أو اصرف مكافأة',
+      path: '/qr-scanner',
+      icon: QrCode,
+      tone: 'bg-chart-2/10 text-chart-2',
+    },
+    {
+      title: 'إرسال إشعار',
+      description: 'رسالة Google Wallet للعملاء',
+      path: '/notifications',
+      icon: Send,
+      tone: 'bg-warning/10 text-warning',
+    },
+    {
+      title: 'المحافظ',
+      description: 'Google وSamsung وApple',
+      path: '/wallet-passes',
+      icon: Wallet,
+      tone: 'bg-success/10 text-success',
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -87,6 +119,26 @@ export default function Dashboard() {
           {currentStore ? `لوحة تحكم — ${currentStore.name}` : isSuperAdmin ? 'لوحة إدارة المنصة' : 'لوحة التحكم'}
         </h2>
         <p className="text-muted-foreground text-sm mt-1">نظرة عامة على أداء نظام الطوابع</p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {quickActions.map((action) => (
+          <Link key={action.path} to={action.path}>
+            <motion.div
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex h-full items-center gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:bg-muted/30"
+            >
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${action.tone}`}>
+                <action.icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">{action.title}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">{action.description}</p>
+              </div>
+            </motion.div>
+          </Link>
+        ))}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

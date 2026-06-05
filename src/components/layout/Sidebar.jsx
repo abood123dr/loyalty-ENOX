@@ -25,8 +25,8 @@ import StoreSwitcher from './StoreSwitcher';
 const storeMenuItems = [
   { icon: LayoutDashboard, label: 'لوحة التحكم', path: '/' },
   { icon: Users, label: 'العملاء', path: '/customers' },
-  { icon: Wallet, label: 'البطاقات الرقمية', path: '/wallet-passes' },
-  { icon: QrCode, label: 'QR Scanner', path: '/qr-scanner' },
+  { icon: QrCode, label: 'مسح QR', path: '/qr-scanner' },
+  { icon: Wallet, label: 'المحافظ', path: '/wallet-passes' },
   { icon: Bell, label: 'الإشعارات', path: '/notifications' },
   { icon: Settings, label: 'الإعدادات', path: '/settings' },
 ];
