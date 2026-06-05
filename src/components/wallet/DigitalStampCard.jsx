@@ -18,6 +18,8 @@ export default function DigitalStampCard({ store, customer, value }) {
   const activeColor = store?.stamp_active_color || '#d9b85f';
   const inactiveColor = store?.stamp_inactive_color || 'rgba(255,255,255,0.25)';
   const symbol = stampSymbols[store?.stamp_icon || 'check'];
+  const stampImageUrl = store?.stamp_image_url || '';
+  const stampEmptyImageUrl = store?.stamp_empty_image_url || '';
   const cardValue = value || customer?.id || '';
   const qrValue = String(cardValue || '');
 
@@ -54,17 +56,25 @@ export default function DigitalStampCard({ store, customer, value }) {
       <div className="mt-6 grid grid-cols-5 gap-3" dir="ltr">
         {Array.from({ length: total }).map((_, index) => {
           const filled = index < current;
+          const imageUrl = filled ? stampImageUrl : stampEmptyImageUrl;
           return (
             <div key={index} className="flex flex-col items-center gap-1">
               <div
-                className="flex h-12 w-12 items-center justify-center rounded-full border text-lg font-black"
+                className="flex h-12 w-12 overflow-hidden items-center justify-center rounded-full border text-lg font-black"
                 style={{
                   background: filled ? activeColor : inactiveColor,
                   borderColor: filled ? activeColor : 'rgba(255,255,255,0.45)',
                   color: filled ? bgColor : textColor,
                 }}
               >
-                {filled ? symbol : ''}
+                {imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    className="h-full w-full object-contain p-1"
+                    draggable={false}
+                  />
+                ) : filled ? symbol : ''}
               </div>
               <span className="text-[10px] font-bold uppercase opacity-75">STAMP</span>
             </div>

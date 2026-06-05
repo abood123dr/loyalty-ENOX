@@ -19,6 +19,8 @@ const publicStoreFields = `
   stamp_active_color,
   stamp_inactive_color,
   stamp_icon,
+  stamp_image_url,
+  stamp_empty_image_url,
   stamp_strip_url,
   stamps_required,
   reward_description,

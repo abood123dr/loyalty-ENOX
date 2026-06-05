@@ -5,7 +5,7 @@ import { useMutation } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
 import { motion } from 'framer-motion';
-import { Copy, Gift, Link2, Palette, Save, Settings as SettingsIcon, Store } from 'lucide-react';
+import { Copy, Gift, Link2, Palette, Save, Settings as SettingsIcon, Store, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,6 +42,8 @@ const storeToForm = (store) => ({
   stamp_active_color: store?.stamp_active_color || '#FFFFFF',
   stamp_inactive_color: store?.stamp_inactive_color || '#FFFFFF33',
   stamp_icon: store?.stamp_icon || 'check',
+  stamp_image_url: store?.stamp_image_url || '',
+  stamp_empty_image_url: store?.stamp_empty_image_url || '',
 });
 
 function ColorField({ label, value, onChange }) {
@@ -56,6 +58,39 @@ function ColorField({ label, value, onChange }) {
           onChange={(event) => onChange(event.target.value)}
         />
         <Input dir="ltr" value={value || ''} onChange={(event) => onChange(event.target.value)} />
+      </div>
+    </div>
+  );
+}
+
+function ImageField({ label, value, onUpload, onClear }) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <div className="mt-2 flex items-center gap-3">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted">
+          {value ? (
+            <img src={value} alt="" className="h-full w-full object-contain p-1" />
+          ) : (
+            <Gift className="h-6 w-6 text-muted-foreground" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <Input dir="ltr" value={value || ''} onChange={(event) => onUpload(event.target.value)} placeholder="https://..." />
+          <div className="mt-2 flex flex-wrap gap-2">
+            <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-input px-3 text-sm">
+              <Upload className="h-4 w-4" />
+              رفع صورة
+              <input type="file" accept="image/*" className="hidden" onChange={(event) => onUpload(event.target.files?.[0])} />
+            </label>
+            {value && (
+              <Button type="button" variant="outline" size="sm" className="gap-2" onClick={onClear}>
+                <X className="h-4 w-4" />
+                إزالة
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -98,6 +133,23 @@ export default function Settings() {
   const copyRegistrationLink = async () => {
     await navigator.clipboard?.writeText(registrationUrl);
     setMessage({ type: 'success', text: 'تم نسخ رابط تسجيل العملاء.' });
+  };
+
+  const uploadStampImage = async (field, fileOrUrl) => {
+    if (!fileOrUrl) return;
+
+    if (typeof fileOrUrl === 'string') {
+      setForm((current) => ({ ...current, [field]: fileOrUrl }));
+      return;
+    }
+
+    setMessage(null);
+    try {
+      const result = await db.integrations.Core.UploadFile(fileOrUrl);
+      setForm((current) => ({ ...current, [field]: result.file_url }));
+    } catch (error) {
+      setMessage({ type: 'error', text: error?.message || 'تعذر رفع صورة الطابع.' });
+    }
   };
 
   if (!currentStore) {
@@ -264,6 +316,20 @@ export default function Settings() {
               <ColorField label="لون النص" value={form.card_text_color} onChange={(value) => setForm({ ...form, card_text_color: value })} />
               <ColorField label="لون الطابع المكتمل" value={form.stamp_active_color} onChange={(value) => setForm({ ...form, stamp_active_color: value })} />
               <ColorField label="لون الطابع الفارغ" value={form.stamp_inactive_color} onChange={(value) => setForm({ ...form, stamp_inactive_color: value })} />
+              <div className="md:col-span-2 grid gap-4 md:grid-cols-2">
+                <ImageField
+                  label="صورة الطابع المكتمل"
+                  value={form.stamp_image_url}
+                  onUpload={(value) => uploadStampImage('stamp_image_url', value)}
+                  onClear={() => setForm({ ...form, stamp_image_url: '' })}
+                />
+                <ImageField
+                  label="صورة الطابع الفارغ"
+                  value={form.stamp_empty_image_url}
+                  onUpload={(value) => uploadStampImage('stamp_empty_image_url', value)}
+                  onClear={() => setForm({ ...form, stamp_empty_image_url: '' })}
+                />
+              </div>
             </div>
           </motion.section>
         </div>
