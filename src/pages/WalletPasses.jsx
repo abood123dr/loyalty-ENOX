@@ -182,6 +182,42 @@ export default function WalletPasses() {
     { label: 'بدون بطاقة', count: withoutCard, icon: AlertCircle },
   ];
 
+  const readinessSteps = [
+    {
+      title: 'Google Wallet',
+      status: 'جاهز للاختبار الآن',
+      icon: CheckCircle,
+      tone: 'success',
+      checks: [
+        'أنشئ بطاقة Google Wallet لعميل تجريبي.',
+        'أضف طابع من QR Scanner أو صفحة العملاء.',
+        'اضغط مزامنة Google Wallet ثم جرّب إرسال إشعار.',
+      ],
+    },
+    {
+      title: 'Samsung Wallet',
+      status: 'ينتظر Card ID النهائي',
+      icon: Clock,
+      tone: 'warning',
+      checks: [
+        'بعد وصول approval النهائي، حدّث SAMSUNG_WALLET_CARD_ID في Supabase Secrets.',
+        'اختبر Add to Samsung Wallet من عميل واحد فقط.',
+        'بعد نجاح الاختبار نستخدم نفس Card ID لكل متاجر المنصة.',
+      ],
+    },
+    {
+      title: 'Apple Wallet',
+      status: 'الهيكل جاهز',
+      icon: Smartphone,
+      tone: 'warning',
+      checks: [
+        'ننتظر تفعيل حساب Apple Developer.',
+        'بعد التفعيل نضيف Pass Type ID والشهادة في Supabase Secrets.',
+        'ثم نختبر إصدار أول ملف pkpass لعميل تجريبي.',
+      ],
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -238,6 +274,40 @@ export default function WalletPasses() {
           <p className="text-sm text-muted-foreground">
             Google Wallet جاهز للتحديثات والإشعارات. Samsung Wallet ينتظر الموافقة. Apple Wallet تم تجهيز بنيته، ويحتاج شهادة Apple قبل إصدار ملفات pkpass.
           </p>
+        </div>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-border bg-card p-5">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">جاهزية Wallet</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              خطوات التشغيل المختصرة لكل محفظة بدون إضافة صفحات جديدة.
+            </p>
+          </div>
+          <Badge className="bg-success/10 text-success">Google جاهز</Badge>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          {readinessSteps.map((step) => (
+            <div key={step.title} className="rounded-xl border border-border bg-background p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${toneClass(step.tone)}`}>
+                  <step.icon className="h-4 w-4" />
+                </div>
+                <Badge variant="outline">{step.status}</Badge>
+              </div>
+              <p className="text-sm font-semibold">{step.title}</p>
+              <div className="mt-3 space-y-2">
+                {step.checks.map((check) => (
+                  <div key={check} className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+                    <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                    <span>{check}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </motion.div>
 
