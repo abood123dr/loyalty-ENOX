@@ -1,4 +1,4 @@
-import db from '@/api/base44Client';
+import db, { supabase } from '@/api/base44Client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DigitalStampCard from '@/components/wallet/DigitalStampCard';
+import { generateStampTierImages } from '@/lib/stampImageGenerator';
 
 const stampOptions = [
   { value: 'check', label: 'صح', symbol: '✓' },
@@ -110,12 +111,55 @@ export default function Settings() {
     `${window.location.origin}/store/${form.slug || currentStore?.slug || 'your-store'}`
   ), [form.slug, currentStore?.slug]);
 
+  const uploadStampTierImages = async (data) => {
+    if (!data.stamp_image_url && !data.stamp_empty_image_url) {
+      return data.stamp_strip_url || currentStore?.stamp_strip_url || null;
+    }
+
+    const images = await generateStampTierImages({
+      storeName: data.name || currentStore?.name,
+      template: 'cafe',
+      cardBgColor: data.card_bg_color,
+      cardTextColor: data.card_text_color,
+      stampActiveColor: data.stamp_active_color,
+      stampInactiveColor: data.stamp_inactive_color,
+      totalStamps: data.stamps_required,
+      title: data.name || currentStore?.name,
+      subtitle: data.reward_description,
+      stampLabel: 'STAMP',
+      customStampImageUrl: data.stamp_image_url,
+      customEmptyStampImageUrl: data.stamp_empty_image_url,
+    });
+
+    const folder = `stamp-designs/${currentStore.id}/${Date.now()}`;
+    let patternUrl = '';
+
+    for (const item of images) {
+      const path = `${folder}/stamp-${item.tier}.png`;
+      const { error } = await supabase.storage
+        .from('uploads')
+        .upload(path, item.blob, { contentType: 'image/png', upsert: true });
+
+      if (error) throw error;
+
+      if (item.tier === 0) {
+        const { data: publicData } = supabase.storage.from('uploads').getPublicUrl(path);
+        patternUrl = publicData.publicUrl.replace('stamp-0.png', 'stamp-{stamp}.png');
+      }
+    }
+
+    return patternUrl || data.stamp_strip_url || currentStore?.stamp_strip_url || null;
+  };
+
   const updateMutation = useMutation({
     mutationFn: async (data) => {
+      const stampStripUrl = await uploadStampTierImages(data);
+
       await db.entities.Store.update(currentStore.id, {
         ...data,
         slug: sanitizeSlug(data.slug),
         stamps_required: Math.max(1, Number(data.stamps_required) || 10),
+        stamp_strip_url: stampStripUrl,
       });
 
       return db.integrations.GoogleWallet.syncPass({ storeId: currentStore.id });
