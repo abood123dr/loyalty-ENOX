@@ -5,7 +5,7 @@ import { useMutation } from '@tanstack/react-query';
 
 import { useStore } from '@/lib/useStore';
 import { motion } from 'framer-motion';
-import { Copy, Gift, Link2, Palette, Save, Settings as SettingsIcon, Store, Upload, X } from 'lucide-react';
+import { Copy, Gift, Link2, Palette, RefreshCw, Save, Settings as SettingsIcon, Store, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -111,17 +111,37 @@ export default function Settings() {
   ), [form.slug, currentStore?.slug]);
 
   const updateMutation = useMutation({
-    mutationFn: (data) => db.entities.Store.update(currentStore.id, {
-      ...data,
-      slug: sanitizeSlug(data.slug),
-      stamps_required: Math.max(1, Number(data.stamps_required) || 10),
-    }),
-    onSuccess: async () => {
+    mutationFn: async (data) => {
+      await db.entities.Store.update(currentStore.id, {
+        ...data,
+        slug: sanitizeSlug(data.slug),
+        stamps_required: Math.max(1, Number(data.stamps_required) || 10),
+      });
+
+      return db.integrations.GoogleWallet.syncPass({ storeId: currentStore.id });
+    },
+    onSuccess: async (result) => {
       await reloadStores();
-      setMessage({ type: 'success', text: 'تم حفظ إعدادات المتجر.' });
+      setMessage({
+        type: 'success',
+        text: `تم حفظ إعدادات المتجر ومزامنة ${result?.updated || 0} بطاقة Google Wallet. قد يتأخر ظهور التحديث على الجوال قليلا.`,
+      });
     },
     onError: (error) => {
       setMessage({ type: 'error', text: error?.message || 'تعذر حفظ الإعدادات.' });
+    },
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: () => db.integrations.GoogleWallet.syncPass({ storeId: currentStore.id }),
+    onSuccess: (result) => {
+      setMessage({
+        type: 'success',
+        text: `تمت مزامنة ${result?.updated || 0} بطاقة Google Wallet. إذا لم يظهر التغيير فوراً انتظر دقيقة وافتح البطاقة من جديد.`,
+      });
+    },
+    onError: (error) => {
+      setMessage({ type: 'error', text: error?.message || 'تعذر مزامنة Google Wallet.' });
     },
   });
 
@@ -179,10 +199,16 @@ export default function Settings() {
           <h2 className="text-2xl font-bold text-foreground">إعدادات المتجر</h2>
           <p className="mt-1 text-sm text-muted-foreground">تحكم بمعلومات المتجر، رابط التسجيل، شكل الطوابع، والمكافأة.</p>
         </div>
-        <Button className="gap-2 bg-primary hover:bg-primary/90" onClick={handleSave} disabled={updateMutation.isPending}>
-          <Save className="h-4 w-4" />
-          {updateMutation.isPending ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending || updateMutation.isPending}>
+            <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+            {syncMutation.isPending ? 'جاري المزامنة...' : 'مزامنة Google Wallet'}
+          </Button>
+          <Button className="gap-2 bg-primary hover:bg-primary/90" onClick={handleSave} disabled={updateMutation.isPending || syncMutation.isPending}>
+            <Save className="h-4 w-4" />
+            {updateMutation.isPending ? 'جاري الحفظ والمزامنة...' : 'حفظ ومزامنة'}
+          </Button>
+        </div>
       </div>
 
       {message && (
