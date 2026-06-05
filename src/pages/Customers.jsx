@@ -26,9 +26,31 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+
+const NOTIFICATION_TEMPLATES = [
+  {
+    id: 'today-offer',
+    label: 'عرض اليوم',
+    title: 'عرض اليوم',
+    message: (customer, store) => `ياهلا ${customer?.full_name || ''}، عندك عرض خاص اليوم من ${store?.name || 'المتجر'}. لا يفوتك.`,
+  },
+  {
+    id: 'reward-ready',
+    label: 'مكافأتك جاهزة',
+    title: 'مكافأتك جاهزة',
+    message: (customer, store) => `مبروك ${customer?.full_name || ''}! مكافأتك جاهزة في ${store?.name || 'المتجر'}. تقدر تستلمها في زيارتك القادمة.`,
+  },
+  {
+    id: 'miss-you',
+    label: 'اشتقنالك',
+    title: 'اشتقنالك',
+    message: (customer, store) => `اشتقنالك ${customer?.full_name || ''}. زور ${store?.name || 'المتجر'} اليوم وخذ طابعك الجديد.`,
+  },
+];
 
 const formatDate = (value) => {
   if (!value) return 'لا يوجد';
@@ -231,6 +253,16 @@ export default function Customers() {
   const handleSelectCustomer = (customer) => {
     setSelectedCustomer(customer);
     setNotificationForm({ title: '', message: '' });
+    setNotificationResult(null);
+  };
+
+  const applyNotificationTemplate = (template) => {
+    if (!selectedCustomer) return;
+
+    setNotificationForm({
+      title: template.title,
+      message: template.message(selectedCustomer, currentStore),
+    });
     setNotificationResult(null);
   };
 
@@ -483,6 +515,23 @@ export default function Customers() {
 
                   <div className="grid gap-3">
                     <div>
+                      <Label>قوالب جاهزة</Label>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {NOTIFICATION_TEMPLATES.map((template) => (
+                          <Button
+                            key={template.id}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => applyNotificationTemplate(template)}
+                            disabled={!selectedCustomer.google_wallet_object_id || sendNotificationMutation.isPending}
+                          >
+                            {template.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
                       <Label>العنوان</Label>
                       <Input
                         className="mt-1"
@@ -497,8 +546,9 @@ export default function Customers() {
                     </div>
                     <div>
                       <Label>الرسالة</Label>
-                      <Input
+                      <Textarea
                         className="mt-1"
+                        rows={3}
                         placeholder="مثال: خصم خاص بانتظارك اليوم"
                         value={notificationForm.message}
                         onChange={(event) => {

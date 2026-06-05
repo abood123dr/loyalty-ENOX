@@ -14,9 +14,37 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { useStore } from '@/lib/useStore';
 
 const DEFAULT_CENTER = { latitude: 24.7136, longitude: 46.6753 };
+
+const NOTIFICATION_TEMPLATES = [
+  {
+    id: 'today-offer',
+    label: 'عرض اليوم',
+    title: 'عرض اليوم',
+    message: (store) => `عرض خاص اليوم من ${store?.name || 'المتجر'}. لا يفوتك.`,
+  },
+  {
+    id: 'reward-ready',
+    label: 'مكافأتك جاهزة',
+    title: 'مكافأتك جاهزة',
+    message: (store) => `مكافأتك جاهزة في ${store?.name || 'المتجر'}. تقدر تستلمها في زيارتك القادمة.`,
+  },
+  {
+    id: 'miss-you',
+    label: 'اشتقنالك',
+    title: 'اشتقنالك',
+    message: (store) => `اشتقنالك. زور ${store?.name || 'المتجر'} اليوم وخذ طابعك الجديد.`,
+  },
+  {
+    id: 'near-store',
+    label: 'قريب من المتجر',
+    title: 'أنت قريب منا',
+    message: (store) => `أنت قريب من ${store?.name || 'المتجر'}. لا تنس بطاقتك وخذ طابعك اليوم.`,
+  },
+];
 
 function MapRecenter({ center }) {
   const map = useMap();
@@ -199,6 +227,15 @@ export default function Notifications() {
   const walletCustomersCount = customers.filter((customer) => customer.google_wallet_object_id).length;
   const hasStoreSelected = Boolean(currentStore?.id);
 
+  const applyNotificationTemplate = (template) => {
+    setForm((current) => ({
+      ...current,
+      title: template.title,
+      message: template.message(currentStore),
+    }));
+    setSendResult(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -251,6 +288,24 @@ export default function Notifications() {
                 )}
 
                 <div>
+                  <Label>قوالب جاهزة</Label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {NOTIFICATION_TEMPLATES.map((template) => (
+                      <Button
+                        key={template.id}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => applyNotificationTemplate(template)}
+                        disabled={createMutation.isPending}
+                      >
+                        {template.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
                   <Label>العنوان</Label>
                   <Input
                     className="mt-1"
@@ -262,8 +317,9 @@ export default function Notifications() {
 
                 <div>
                   <Label>الرسالة</Label>
-                  <Input
+                  <Textarea
                     className="mt-1"
+                    rows={3}
                     placeholder="مثال: ختمين إضافيين عند زيارتك اليوم"
                     value={form.message}
                     onChange={(event) => setForm({ ...form, message: event.target.value })}
