@@ -47,6 +47,13 @@ const storeToForm = (store) => ({
   stamp_empty_image_url: store?.stamp_empty_image_url || '',
 });
 
+const isMissingStampImageColumns = (error) => (
+  String(error?.message || '').includes('stamp_image_url')
+  || String(error?.message || '').includes('stamp_empty_image_url')
+  || String(error?.details || '').includes('stamp_image_url')
+  || String(error?.details || '').includes('stamp_empty_image_url')
+);
+
 function ColorField({ label, value, onChange }) {
   return (
     <div>
@@ -154,21 +161,47 @@ export default function Settings() {
   const updateMutation = useMutation({
     mutationFn: async (data) => {
       const stampStripUrl = await uploadStampTierImages(data);
-
-      await db.entities.Store.update(currentStore.id, {
-        ...data,
-        slug: sanitizeSlug(data.slug),
+      const sanitizedSlug = sanitizeSlug(data.slug);
+      const basePayload = {
+        name: data.name || '',
+        description: data.description || '',
+        phone: data.phone || '',
+        email: data.email || '',
+        city: data.city || '',
+        slug: sanitizedSlug,
         stamps_required: Math.max(1, Number(data.stamps_required) || 10),
+        reward_description: data.reward_description || '',
+        card_bg_color: data.card_bg_color || '#7C3AED',
+        card_text_color: data.card_text_color || '#FFFFFF',
+        stamp_active_color: data.stamp_active_color || '#FFFFFF',
+        stamp_inactive_color: data.stamp_inactive_color || '#FFFFFF33',
+        stamp_icon: data.stamp_icon || 'check',
         stamp_strip_url: stampStripUrl,
-      });
+      };
 
-      return db.integrations.GoogleWallet.syncPass({ storeId: currentStore.id });
+      await db.entities.Store.update(currentStore.id, basePayload);
+
+      let imageColumnsSaved = true;
+      try {
+        await db.entities.Store.update(currentStore.id, {
+          stamp_image_url: data.stamp_image_url || null,
+          stamp_empty_image_url: data.stamp_empty_image_url || null,
+        });
+      } catch (error) {
+        if (!isMissingStampImageColumns(error)) throw error;
+        imageColumnsSaved = false;
+      }
+
+      const syncResult = await db.integrations.GoogleWallet.syncPass({ storeId: currentStore.id });
+      return { ...syncResult, imageColumnsSaved };
     },
     onSuccess: async (result) => {
       await reloadStores();
       setMessage({
-        type: 'success',
-        text: `تم حفظ إعدادات المتجر ومزامنة ${result?.updated || 0} بطاقة Google Wallet. قد يتأخر ظهور التحديث على الجوال قليلا.`,
+        type: result?.imageColumnsSaved === false ? 'warning' : 'success',
+        text: result?.imageColumnsSaved === false
+          ? `تم حفظ اللون والتصميم ومزامنة ${result?.updated || 0} بطاقة Google Wallet، لكن روابط صور الطابع لم تحفظ لأن أعمدة stamp_image_url غير موجودة. شغّل SQL الخاص بالأعمدة من Supabase.`
+          : `تم حفظ إعدادات المتجر ومزامنة ${result?.updated || 0} بطاقة Google Wallet. قد يتأخر ظهور التحديث على الجوال قليلا.`,
       });
     },
     onError: (error) => {
@@ -259,7 +292,9 @@ export default function Settings() {
         <div className={`rounded-xl border p-3 text-sm ${
           message.type === 'error'
             ? 'border-destructive/20 bg-destructive/10 text-destructive'
-            : 'border-success/20 bg-success/10 text-success'
+            : message.type === 'warning'
+              ? 'border-warning/20 bg-warning/10 text-warning'
+              : 'border-success/20 bg-success/10 text-success'
         }`}>
           {message.text}
         </div>
